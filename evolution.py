@@ -81,8 +81,8 @@ if not tracking:
     # phi_times = np.load(loaddir + "times" + tps + ".npy")
     # phi_vals = np.load(loaddir + "phis" + ps + ".npy")
     # phi_func = dict(times=phi_times, phis=phi_vals)
-    if enz:
-        c = 1  # constant to modify the amplitude of the pulse
+    # if enz:
+    #     c = 1  # constant to modify the amplitude of the pulse
 else:
     # TRACKING PARAMETERS
     tuot = 1.  # tracking U/t_0
