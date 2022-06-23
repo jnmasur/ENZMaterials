@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import root_scalar
 from tenpy.models.hubbard import FermiHubbardChain
 from tenpy.models.model import CouplingMPOModel, NearestNeighborModel
 from tenpy.tools.params import Config
@@ -121,7 +122,7 @@ def phi_tl(time, p):
     """
     return (p.a * p.strength / p.field) * (np.sin(p.field * time / (2*p.cycles))**2) * np.sin(p.field * time)
 
-def phi_tracking(time, p, target_current, tebd):
+def phi_tracking(target_current, tebd):
     """
     Calculates phi(time) for some current expectation we would like to track
     Params:
@@ -132,7 +133,22 @@ def phi_tracking(time, p, target_current, tebd):
     expec = tebd.nnop.H_MPO.expectation_value(tebd.psi)
     r = np.abs(expec)
     theta = np.angle(expec)
-    return np.arcsin( (-target_current) / (2*p.a*p.t0*r) ) + theta
+    return np.arcsin( (-target_current) / (2*tebd.p.a*tebd.p.t0*r) ) + theta
+
+def phi_enz(tebd):
+    expec = tebd.nnop.H_MPO.expectation_value(tebd.psi)
+    r = np.abs(expec)
+    theta = np.angle(expec)
+    # when this function is 0, induced current = phi
+    f = lambda phi: tebd.c * phi + 2*tebd.p.a*tebd.p.t0*r*np.sin(phi - theta)
+    res = root_scalar(f, bracket=[-1/np.abs(tebd.c), 1/np.abs(tebd.c)])
+    if not res.converged:
+        raise Exception("Could not find zero at time {}".format(time))
+    return res.root
 
 def relative_error(exact, mps):
     return 100 * np.linalg.norm(exact - mps) / np.linalg.norm(exact)
+
+# calculate difference between two MPS
+def difference(a, b):
+    return 1 - abs(a.overlap(b))

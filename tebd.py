@@ -42,15 +42,18 @@ import numpy as np
 import time
 import warnings
 import datetime
+import copy
+import h5py
 
 from tenpy.linalg import np_conserved as npc
 from tenpy.algorithms.truncation import svd_theta, TruncationError
 from tenpy.tools.params import asConfig, Config
 from tenpy.linalg.random_matrix import CUE
+from tenpy.tools import hdf5_io
 
-from tools import FHHamiltonian, FHCurrent, FHNearestNeighbor, phi_tl
+from tools import *
 
-__all__ = ['Engine', 'RandomUnitaryEvolution']
+__all__ = ['Engine']
 
 
 class Engine:
@@ -118,7 +121,7 @@ class Engine:
     _update_index : None | (int, int)
         The indices ``i_dt,i_bond`` of ``U_bond = self._U[i_dt][i_bond]`` during update_step.
     """
-    def __init__(self, psi, model, p, phi_func, options):
+    def __init__(self, psi, model, p, phi_func, tracking_info, c, options):
         self.options = options = asConfig(options, "TEBD")
         self.trunc_params = options.subconfig('trunc_params')
         self.psi = psi
@@ -126,7 +129,12 @@ class Engine:
         self.currentop = FHCurrent(p, 0)
         self.nnop = FHNearestNeighbor(p)  # nearest neighbor operator
         self.p = p
+        # phi_func should either be a dictionary with keys 'times' and 'phis'
+        # or a function that can be called to calculate the value of phi
+        assert type(phi_func) is dict or callable(phi_func)
         self.phi_func = phi_func
+        self.tracking_info = tracking_info
+        self.c = c
         self.evolved_time = self.time = options.get('start_time', 0.)
         self.trunc_err = options.get('start_trunc_err', TruncationError())
         self._U = None
@@ -144,7 +152,7 @@ class Engine:
         """truncation error introduced on each non-trivial bond."""
         return self._trunc_err_bonds[self.psi.nontrivial_bonds]
 
-    def run(self, tracking_current=None):
+    def run(self, adaptive=False):
         """(Real-)time evolution with TEBD (time evolving block decimation).
 
         .. cfg:configoptions :: TEBD
@@ -166,7 +174,43 @@ class Engine:
 
         self.calc_U(TrotterOrder, delta_t, type_evo='real', E_offset=None)
 
-        trunc_err, times, energies, currents, phis = self.update(N_steps, delta_t, tracking_current)
+        final_t = N_steps * delta_t
+
+        # enz simulation
+        if self.c is not None:
+            fps = "-nsites{}-U{}-maxdim{}".format(self.p.nsites, self.p.u, self.options["trunc_params"]["chi_max"])
+            # load excited state (one that has been evolved by tl pulse)
+            try:
+                with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'r') as f:
+                    psi = hdf5_io.load_from_hdf5(f)
+                self.psi = psi
+            # initital psi not saved yet, evolve and save it
+            except Exception as e:
+                # evolve the system under pulse specified in evolution, and save the resulting state
+                if adaptive:
+                    self.update_adaptive(delta_t, final_t)
+                else:
+                    self.update(N_steps, delta_t)
+                    with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
+                        hdf5_io.save_to_hdf5(f, self.psi)
+
+            self.time = 0.0
+            self.phi_func = phi_enz
+            self.update_operators(None)
+            # evolve the system such that the trajectory follows the input pulse
+            self.calc_U(TrotterOrder, delta_t, type_evo='real', E_offset=None)
+            if adaptive:
+                trunc_err, times, energies, currents, phis = self.update_adaptive(delta_t, final_t)
+            else:
+                trunc_err, times, energies, currents, phis = self.update(N_steps, delta_t)
+
+        else:
+            # with adaptive time step, we need both the times and current to track
+            if adaptive:
+                trunc_err, times, energies, currents, phis = self.update_adaptive(delta_t, final_t)
+            else:
+                trunc_err, times, energies, currents, phis = self.update(N_steps, delta_t)
+
         return times, energies, currents, phis
 
     @staticmethod
@@ -298,12 +342,10 @@ class Engine:
             U_param['tau'] = -1.j * delta_t
         else:
             raise ValueError("Invalid value for `type_evo`: " + repr(type_evo))
-        # if self._U_param == U_param:  # same keys and values as cached
-        #     if self.verbose >= 10:
-        #         print("Skip recalculation of U with same parameters as before: ", U_param)
-        #     return  # nothing to do: U is cached
+
         self._U_param = U_param
 
+        del self._U
         L = self.psi.L
         self._U = []
         # returns [prefactor of timestep for odd, prefactor of timestep for even]
@@ -318,15 +360,13 @@ class Engine:
             self._U.append(U_bond)
         # done
 
-    def update(self, N_steps, delta_t, tracking_current):
+    def update(self, N_steps, delta_t):
         """Evolve by ``N_steps * U_param['dt']``.
 
         Parameters
         ----------
         N_steps : int
             The number of steps for which the whole lattice should be updated.
-        tracking_current : np.array
-            The current we would like to track
 
         Returns
         -------
@@ -338,9 +378,18 @@ class Engine:
         order = self._U_param['order']
         ti = time.time()
         times = [self.time]
-        energies = [np.sum(self.model.bond_energies(self.psi))]
-        currents = [self.currentop.H_MPO.expectation_value(self.psi)]
-        phis = [0.]  # for tracking purposes
+        if self.c is None:
+            energies = [np.sum(self.model.bond_energies(self.psi))]
+            currents = [self.currentop.H_MPO.expectation_value(self.psi)]
+            phis = [0.]
+        # enz simulation
+        else:
+            energies = []
+            currents = []
+            phis = []
+        if self.tracking_info is not None:
+            tracking_times = self.tracking_info["times"]
+            tracking_currents = self.tracking_info["currents"]
         i = 0  # for keeping track of when a timestep completes
         # returns [(0, odd boolean), (1, even_boolean), (0, odd_boolean)] * N
         # boolean is actually just an integer 0 - false, 1 - true
@@ -369,14 +418,122 @@ class Engine:
                 currents.append(self.currentop.H_MPO.expectation_value(self.psi))
                 # now we must update the model which describes the hamiltonian
                 # and the time evolution operator for the next step
-                if tracking_current is not None:
-                    phi = self.update_operators(tracking_current[int(i / 3)])
-                    phis.append(phi)
+                if self.tracking_info is not None:
+                    phi = self.update_operators(tracking_currents[int(i / 3)])
                 else:
-                    self.update_operators(None)
+                    phi = self.update_operators(None)
+                phis.append(phi)
                 self.calc_U(order, delta_t, type_evo='real', E_offset=None)
-        # print()
+        print()
         self.evolved_time = self.evolved_time + N_steps * self._U_param['tau']
+        self.trunc_err = self.trunc_err + trunc_err  # not += : make a copy!
+        # (this is done to avoid problems of users storing self.trunc_err after each `update`)
+        return trunc_err, np.array(times), np.array(energies), np.array(currents), np.array(phis)
+
+    def update_adaptive(self, dti, tf):
+        """Evolution by dynamic timestep
+
+        Parameters
+        ----------
+        N_steps : int
+            The number of steps for which the whole lattice should be updated.
+        tracking_current : np.array
+            The current we would like to track
+
+        Returns
+        -------
+        trunc_err : :class:`~tenpy.algorithms.truncation.TruncationError`
+            The error of the represented state which is introduced due to the truncation during
+            this sequence of update steps.
+        """
+        """
+        ALL THAT IS LEFT TO DO IS LEARN HOW TO DEEP COPY IN PYTHON AND
+        INTERPOLATION OF TRACKING CURRENT
+        """
+        epsilon = 1e-3  # acceptable difference between current and next states
+        trunc_err = TruncationError()
+        order = self._U_param['order']
+        init_t = time.time()
+        times = [self.time]
+        energies = [np.sum(self.model.bond_energies(self.psi))]
+        currents = [self.currentop.H_MPO.expectation_value(self.psi)]
+        phis = [0.]  # for tracking purposes
+        if self.tracking_info is not None:
+            tracking_times = self.tracking_info["times"]
+            tracking_currents = self.tracking_info["currents"]
+        en = en1 = 0.0
+        # set dt and previous dt
+        dt = pdt = dti
+        while self.time < tf:
+            # DEEP COPY PSI HERE
+            prev_psi = copy.deepcopy(self.psi)
+            # U = exp[-i * dt * \sum_i h_i] =~
+            # exp[-i * dt/2 * sum_{odd i}] exp[-i * dt * sum_{even i}] exp[-i * dt/2 * sum_{odd i}]
+            trunc_err += self.update_step(0, 1)
+            trunc_err += self.update_step(1, 0)
+            trunc_err += self.update_step(0, 1)
+
+            # calculate difference between current and next psi
+            en = difference(prev_psi, self.psi)
+
+            # run propogation while the difference is greater than acceptable error
+            while en > epsilon:
+                self.psi = copy.deepcopy(self.psi)
+                # adjust time step
+                dt *= epsilon / en
+                print("new dt:", dt)
+                # recalculate U using the new dt
+                self.calc_U(order, dt, type_evo='real', E_offset=None)
+                # get the next MPS and calculate difference
+                trunc_err += self.update_step(0, 1)
+                trunc_err += self.update_step(1, 0)
+                trunc_err += self.update_step(0, 1)
+                en = difference(prev_psi, self.psi)
+                print("difference:", en)
+
+            self.time += dt
+            print("Current time:", self.time)
+            t = time.time() - init_t  # time simulation has been running
+            # complete = self.time / tf  # proportion complete
+            # seconds = t / complete * (1 - complete)  # time remaining
+            # days = int(seconds // (3600 * 24))
+            # seconds = seconds % (3600 * 24)
+            # hrs = int(seconds // 3600)
+            # seconds = seconds % 3600
+            # mins = int(seconds // 60)
+            # seconds = int(seconds % 60)
+            # status = "Simulation status: {:.2f}% -- ".format(complete * 100)
+            # status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
+            # print(status, end="\r")
+            times.append(self.time)
+            energies.append(np.sum(self.model.bond_energies(self.psi)))
+            currents.append(self.currentop.H_MPO.expectation_value(self.psi))
+
+            en1 = en1 if en1 > 0 else en
+
+            # adjust for next time step
+            # https://www.sciencedirect.com/science/article/pii/S0377042705001123
+            ndt = dt * ((epsilon**2 * dt) / (en * en1 * pdt))**(1/12)
+
+            # update values for next iteration e_{n-1} -> e_n, dt_{n-1} = dt_n,
+            # dt_n -> dt_{n+1}
+            en1 = en
+            pdt = dt
+            dt = ndt
+
+            # now we must update the model which describes the hamiltonian
+            # and the time evolution operator for the next step
+            if self.tracking_info is not None:
+                # interpolation between nearest points in time to get current for tracking
+                indx = np.where(tracking_times > self.time)[0][0]
+                curr = (tracking_currents[indx] - tracking_currents[indx-1]) / (tracking_times[indx] - tracking_times[indx-1]) \
+                        * (self.time - tracking_times[indx-1])
+                phi = self.update_operators(curr)
+            else:
+                phi = self.update_operators(None)
+            phis.append(phi)
+            self.calc_U(order, dt, type_evo='real', E_offset=None)
+        print()
         self.trunc_err = self.trunc_err + trunc_err  # not += : make a copy!
         # (this is done to avoid problems of users storing self.trunc_err after each `update`)
         return trunc_err, np.array(times), np.array(energies), np.array(currents), np.array(phis)
@@ -387,10 +544,21 @@ class Engine:
         """
         del self.model
         del self.currentop
-        args = []
-        if tcurrent is not None:
-            args = [tcurrent, self]
-        phi = self.phi_func(self.time, self.p, *args)
+        if callable(self.phi_func):
+            if self.phi_func.__name__ == "phi_tl":
+                phi = self.phi_func(self.time, self.p)
+            elif self.phi_func.__name__ == "phi_tracking":
+                phi = self.phi_func(tcurrent, self)
+            else:
+                phi = self.phi_func(self)
+        # phi is a dictionary with phis and times
+        else:
+            phi_vals = self.phi_func["phis"]
+            phi_times = self.phi_func["times"]
+            # interpolation to find the value of phi
+            indx = np.where(phi_times > self.time)[0][0]
+            phi = (phi_vals[indx] - phi_vals[indx-1]) / (phi_times[indx] - phi_times[indx-1]) \
+                    * (self.time - phi_times[indx-1])
         model = FHHamiltonian(self.p, phi)
         currentop = FHCurrent(self.p, phi)
         self.model = model
