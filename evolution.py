@@ -18,6 +18,7 @@ Command line arguments should be used as follows:
 --dim [int multiple of 200] : maximum dimension
 --N [even int] : number of sites
 --nsteps [int] : number of evolution steps
+--c [float] : amount to scale current by in enz
 """
 # hopping parameter, in units eV
 it = .52
@@ -34,6 +35,8 @@ for i in range(1, len(sys.argv), 2):
         N = int(sys.argv[i + 1])
     elif sys.argv[i] == "--nsteps":
         nsteps = int(sys.argv[i + 1])
+    elif sys.argv[i] == "--c":
+        c = float(sys.argv[i + 1])
     else:
         print("Unrecognized argument: {}".format(sys.argv[i]))
 
@@ -56,7 +59,7 @@ iF0 = 10  # field strength in MV/cm
 iomega0 = 32.9  # driving (angular) frequency, in THz
 cycles = 10
 pbc = False  # periodic boundary conditions
-c = None  # only changed if we are performing an enz simulation
+# c = None  # only changed if we are performing an enz simulation
 
 ########################
 """TYPE OF SIMULATION"""
@@ -173,13 +176,13 @@ else:
 with open(savedir + "metadata" + allps + ecps + ".txt", "w") as f:
     f.write(str(tot_time) + "\n")
 
-if tracking:
-    plt.plot(times, currents)
-    plt.plot(times, tracking_current, label="Tracked Current", ls="dashed")
-    plt.legend()
-    plt.show()
-elif enz:
-    plt.plot(currents)
-    plt.plot(phis, label="$\\Phi(t)$", ls="dashed")
-    plt.legend()
-    plt.show()
+# if tracking:
+#     plt.plot(times, currents)
+#     plt.plot(times, tracking_current, label="Tracked Current", ls="dashed")
+#     plt.legend()
+#     plt.show()
+# elif enz:
+#     plt.plot(currents)
+#     plt.plot(phis, label="$\\Phi(t)$", ls="dashed")
+#     plt.legend()
+#     plt.show()
