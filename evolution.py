@@ -26,6 +26,7 @@ maxdim = None
 N = None
 iU = None
 nsteps = None
+c = None # only changed if we are performing an enz simulation
 for i in range(1, len(sys.argv), 2):
     if sys.argv[i] == "--U":
         iU = float(sys.argv[i + 1]) * it
@@ -46,7 +47,7 @@ for i in range(1, len(sys.argv), 2):
 # maximum bond dimension, used for both DMRG and TEBD, multiple of 200
 maxdim = 800 if maxdim is None else maxdim
 N = 10 if N is None else N
-iU = 0.5 * it if iU is None else iU
+iU = 0. * it if iU is None else iU
 # the number of steps if not apdative, determines the initial dt if adaptive
 nsteps = 4000 if nsteps is None else nsteps
 
@@ -59,19 +60,19 @@ iF0 = 10  # field strength in MV/cm
 iomega0 = 32.9  # driving (angular) frequency, in THz
 cycles = 10
 pbc = False  # periodic boundary conditions
-# c = None  # only changed if we are performing an enz simulation
 
 ########################
 """TYPE OF SIMULATION"""
 ########################
 adaptive = False
 tracking = False
-enz = True
+enz = False
 assert not (tracking and enz)  # tracking and enz are mutually exclusive
 if not tracking:
     tracking_info = None
     # a basic simulation evolves by a tl pulse or one specified by loading
     # an enz simulation must first be evolved by a tl or specified pulse
+<<<<<<< HEAD
     phi_func = phi_tl
     # loaddir = "./Data/Tenpy/Tracking/"
     # suot = 0.
@@ -83,6 +84,23 @@ if not tracking:
     # phi_func = dict(times=phi_times, phis=phi_vals)
     # if enz:
     #     c = 1  # constant to modify the amplitude of the pulse
+=======
+    # phi_func = phi_tl
+    loaddir = "./Data/Tenpy/Tracking/"
+    suot = 0.
+    tuot = 1.
+    tps = "-nsteps{}".format(nsteps)
+    phips = "-nsteps{}-nsites{}-sU{}-tU{}-maxdim{}".format(nsteps, N, suot, tuot, maxdim)
+    phi_times = np.load(loaddir + "times" + tps + ".npy")
+    phi_vals = np.load(loaddir + "phis" + phips + ".npy")
+    phi_func = dict(times=phi_times, phis=phi_vals)
+    print(phi_vals.shape)
+    print(phi_times.shape)
+    cps = "-nsteps{}-nsites{}-U{}-maxdim{}".format(nsteps, N, tuot, maxdim)
+    comp_current = np.load("./Data/Tenpy/Basic/currents" + cps + ".npy")
+    if enz:
+        c = 1 if c is None else c # constant to modify the amplitude of the pulse
+>>>>>>> fe3b5abebd09952eb6df6ab3f4f529010b109445
 else:
     # TRACKING PARAMETERS
     tuot = 1.  # tracking U/t_0
@@ -161,6 +179,9 @@ else:
     savedir += "Basic/"
     ecps += "-U{}".format(p.u)
 ecps += "-maxdim{}".format(maxdim)
+# if phi function is a predefined pulse, save those parameters too
+if not callable(phi_func):
+    ecps += "--phips" + phips
 if adaptive:
     np.save(savedir + "times" + allps + ecps + ".npy", times)
 else:
@@ -176,13 +197,17 @@ else:
 with open(savedir + "metadata" + allps + ecps + ".txt", "w") as f:
     f.write(str(tot_time) + "\n")
 
-# if tracking:
-#     plt.plot(times, currents)
-#     plt.plot(times, tracking_current, label="Tracked Current", ls="dashed")
-#     plt.legend()
-#     plt.show()
-# elif enz:
-#     plt.plot(currents)
-#     plt.plot(phis, label="$\\Phi(t)$", ls="dashed")
-#     plt.legend()
-#     plt.show()
+if tracking:
+    plt.plot(times, currents)
+    plt.plot(times, tracking_current, label="Tracked Current", ls="dashed")
+    plt.legend()
+    plt.show()
+elif enz:
+    plt.plot(currents)
+    plt.plot(phis, label="$\\Phi(t)$", ls="dashed")
+    plt.legend()
+    plt.show()
+else:
+    plt.plot(times, currents, label="U/t=0")
+    plt.plot(times, comp_current, label="U/t=1")
+    plt.show()
