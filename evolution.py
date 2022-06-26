@@ -19,6 +19,7 @@ Command line arguments should be used as follows:
 --N [even int] : number of sites
 --nsteps [int] : number of evolution steps
 --c [float] : amount to scale current by in enz
+--eps [float] : the acceptable change in states for adaptive time step
 """
 # hopping parameter, in units eV
 it = .52
@@ -27,6 +28,7 @@ N = None
 iU = None
 nsteps = None
 c = None # only changed if we are performing an enz simulation
+epsilon = None  # only changed for adaptive method
 for i in range(1, len(sys.argv), 2):
     if sys.argv[i] == "--U":
         iU = float(sys.argv[i + 1]) * it
@@ -38,6 +40,8 @@ for i in range(1, len(sys.argv), 2):
         nsteps = int(sys.argv[i + 1])
     elif sys.argv[i] == "--c":
         c = float(sys.argv[i + 1])
+    elif sys.argv[i] == "--eps":
+        epsilon = float(sys.argv[i + 1])
     else:
         print("Unrecognized argument: {}".format(sys.argv[i]))
 
@@ -64,10 +68,12 @@ pbc = False  # periodic boundary conditions
 ########################
 """TYPE OF SIMULATION"""
 ########################
-adaptive = False
+adaptive = True
 tracking = False
 enz = False
 assert not (tracking and enz)  # tracking and enz are mutually exclusive
+if adaptive:
+    epsilon = 1e-5 if epsilon is None else epsilon
 if not tracking:
     tracking_info = None
     # a basic simulation evolves by a tl pulse or one specified by loading
@@ -81,8 +87,6 @@ if not tracking:
     # phi_times = np.load(loaddir + "times" + tps + ".npy")
     # phi_vals = np.load(loaddir + "phis" + phips + ".npy")
     # phi_func = dict(times=phi_times, phis=phi_vals)
-    # print(phi_vals.shape)
-    # print(phi_times.shape)
     # cps = "-nsteps{}-nsites{}-U{}-maxdim{}".format(nsteps, N, tuot, maxdim)
     # comp_current = np.load("./Data/Tenpy/Basic/currents" + cps + ".npy")
     if enz:
@@ -103,10 +107,11 @@ else:
 out = """Evolving with
 U/t0 = {:.1f}
 adaptive = {}
+epsilon = {}
 maximum dimension = {}
 number of sites = {}
 number of steps = {}
-""".format(iU/it, adaptive, maxdim, N, nsteps)
+""".format(iU/it, adaptive, epsilon, maxdim, N, nsteps)
 print(out)
 
 p = Parameters(N, iU, it, ia, cycles, iomega0, iF0, pbc)
@@ -141,7 +146,7 @@ times, delta = np.linspace(ti, tf, num=nsteps, endpoint=True, retstep=True)
 # nsteps time points, including the ground state calculations
 tebd_dict = {"dt":delta, "order":2, "start_time":ti, "start_trunc_err":TruncationError(eps=maxerr), "trunc_params":{"svd_min":maxerr, "chi_max":maxdim}, "N_steps":nsteps-1}
 tebd_params = Config(tebd_dict, "TEBD-trunc_err{}-nsteps{}".format(maxerr, nsteps))
-tebd = TEBD(psi, model, p, phi_func, tracking_info, c, tebd_params)
+tebd = TEBD(psi, model, p, phi_func, epsilon, tracking_info, c, tebd_params)
 times, energies, currents, phis = tebd.run(adaptive=adaptive)
 
 tot_time = time.time() - start_time
@@ -153,6 +158,7 @@ allps = "-nsteps{}".format(nsteps)
 ecps = "-nsites{}".format(p.nsites)
 if adaptive:
     savedir += "AdaptiveTimeStep/"
+    ecps += "-epsilon{}".format(epsilon)
 else:
     savedir += "Tenpy/"
 if tracking:
@@ -177,7 +183,9 @@ np.save(savedir + "currents" + allps + ecps + ".npy", currents)
 if tracking or enz:
     np.save(savedir + "phis" + allps + ecps + ".npy", phis)
 else:
-    np.save(savedir + "phis" + allps + "-a{}-f{}-w{}-cycles{}.npy".format(ia, iF0, iomega0, cycles), phis)
+    # no need to save phi if it was loaded
+    if callable(phi_func):
+        np.save(savedir + "phis" + allps + "-a{}-f{}-w{}-cycles{}.npy".format(ia, iF0, iomega0, cycles), phis)
 
 # write metadata to file (evolution time and error)
 with open(savedir + "metadata" + allps + ecps + ".txt", "w") as f:
