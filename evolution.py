@@ -91,6 +91,7 @@ if not tracking:
     # comp_current = np.load("./Data/Tenpy/Basic/currents" + cps + ".npy")
     if enz:
         c = 1 if c is None else c # constant to modify the amplitude of the pulse
+>>>>>>> fe3b5abebd09952eb6df6ab3f4f529010b109445
 else:
     # TRACKING PARAMETERS
     tuot = 1.  # tracking U/t_0
