@@ -401,9 +401,9 @@ class Engine:
             # the if statement indicates that one time step of the order 2
             # method ONLY has completed
             if i % 3 == 0:
-                print(difference(prev_psi, self.psi))
-                del prev_psi
-                prev_psi = copy.deepcopy(self.psi)
+                # print(difference(prev_psi, self.psi))
+                # del prev_psi
+                # prev_psi = copy.deepcopy(self.psi)
                 self.time += delta_t
                 t = time.time() - ti  # time simulation has been running
                 complete = i / (N_steps * 3)  # proportion complete (2nd order)
@@ -416,7 +416,7 @@ class Engine:
                 seconds = int(seconds % 60)
                 status = "Simulation status: {:.2f}% -- ".format(complete * 100)
                 status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
-                # print(status, end="\r")
+                print(status, end="\r")
                 times.append(self.time)
                 energies.append(np.sum(self.model.bond_energies(self.psi)))
                 currents.append(self.currentop.H_MPO.expectation_value(self.psi))
