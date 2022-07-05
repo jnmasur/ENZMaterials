@@ -44,6 +44,7 @@ import warnings
 import datetime
 import copy
 import h5py
+import gc
 
 from tenpy.linalg import np_conserved as npc
 from tenpy.algorithms.truncation import svd_theta, TruncationError
@@ -401,6 +402,7 @@ class Engine:
             # the if statement indicates that one time step of the order 2
             # method ONLY has completed
             if i % 3 == 0:
+                gc.collect()  # collect all garbage
                 # print(difference(prev_psi, self.psi))
                 # del prev_psi
                 # prev_psi = copy.deepcopy(self.psi)
@@ -459,6 +461,7 @@ class Engine:
         dt = pdt = dti
         prev_psi = copy.deepcopy(self.psi)
         while self.time < tf:
+            gc.collect()  # garbage collector
             del prev_psi
             prev_psi = copy.deepcopy(self.psi)
             # U = exp[-i * dt * \sum_i h_i] =~
