@@ -154,13 +154,14 @@ tot_time = time.time() - start_time
 print("Evolution complete, total time:", tot_time)
 
 savedir = "./Data/"
-allps = "-nsteps{}".format(nsteps)
+allps = ""
 ecps = "-nsites{}".format(p.nsites)
 if adaptive:
     savedir += "AdaptiveTimeStep/"
     ecps += "-epsilon{}".format(epsilon)
 else:
     savedir += "Tenpy/"
+    allps += "-nsteps{}".format(nsteps)
 if tracking:
     savedir += "Tracking/"
     ecps += "-sU{}-tU{}".format(p.u, tuot)
@@ -188,8 +189,7 @@ else:
         np.save(savedir + "phis" + allps + "-a{}-f{}-w{}-cycles{}.npy".format(ia, iF0, iomega0, cycles), phis)
 
 # write metadata to file (evolution time and error)
-with open(savedir + "metadata" + allps + ecps + ".txt", "w") as f:
-    f.write(str(tot_time) + "\n")
+np.save(savedir + "metadata" + allps + ecps + ".npy", tot_time)
 
 # if tracking:
 #     plt.plot(times, currents)
