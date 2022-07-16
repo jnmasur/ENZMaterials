@@ -26,9 +26,9 @@ pbc = False
 lat = Parameters(N, iU, it, ia, cycles, iomega0, iF0, pbc)
 
 data = []
-for N in [6, 8]:
-    for nsteps in [1000, 2000, 3000, 4000, 5000]:
-        for uot in [0, .125, .25, .5, 1., 2., 4., 8.]:
+for N in [12]:
+    for nsteps in [4000]:
+        for uot in [0, .25, .5, 1., 2.]:
             data.append((Parameters(N, uot * it, it, ia, cycles, iomega0, iF0, pbc), nsteps))
 
 def simulate(lat, n_steps):
@@ -88,5 +88,5 @@ def simulate(lat, n_steps):
 
     print("Done - " + str)
 
-with Pool(80) as pool:
-    pool.starmap(simulate, data)
+for d in data:
+    simulate(*d)
