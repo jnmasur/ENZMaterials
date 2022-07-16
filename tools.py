@@ -149,6 +149,37 @@ def phi_enz(tebd):
 def relative_error(exact, mps):
     return 100 * np.linalg.norm(exact - mps) / np.linalg.norm(exact)
 
+def relative_error_interp(exact, exactts, mps, mpsts):
+    assert len(exact) == len(exactts)
+    assert len(mps) == len(mpsts)
+    if len(exact) > len(mps):
+        bigarr = exact
+        bigarrt = exactts
+        litarr = mps
+        litarrt = mpsts
+    elif len(exact) < len(mps):
+        bigarr = mps
+        bigarrt = mpsts
+        litarr = exact
+        litarrt = exactts
+    else:
+        return relative_error(exact, mps)
+
+    diff = np.zeros(len(litarr))
+    for i in range(len(litarr)):
+        # extrapolation
+        if litarrt[i] > bigarrt[-1]:
+            intcurr = bigarr[-1] + (bigarr[-1] - bigarr[-2]) / (bigarrt[-1] - bigarrt[-2]) * \
+                                        (litarrt[i] - bigarrt[-1])
+        else:
+            indx = np.where(bigarrt > litarrt[i])[0][0]
+            intcurr = bigarr[indx-1] + (bigarr[indx] - bigarr[indx-1]) / (bigarrt[indx] - bigarrt[indx-1]) * \
+                                        (litarrt[i] - bigarrt[indx-1])
+        diff[i] = litarr[i] - intcurr
+    return 100 * np.linalg.norm(diff) / np.linalg.norm(exact)
+
+
+
 # calculate difference between two MPS
 def difference(a, b):
     return 1 - abs(a.overlap(b))

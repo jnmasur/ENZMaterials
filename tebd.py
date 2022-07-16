@@ -512,7 +512,7 @@ class Engine:
             # https://www.sciencedirect.com/science/article/pii/S0377042705001123
             ndt = dt * ((self.epsilon**2 * dt) / (en * en1 * pdt))**(1/12)
 
-            # update values for next iteration e_{n-1} -> e_n, dt_{n-1} = dt_n,
+            # update values for next iteration e_{n-1} -> e_n, dt_{n-1} -> dt_n,
             # dt_n -> dt_{n+1}
             en1 = en
             pdt = dt
