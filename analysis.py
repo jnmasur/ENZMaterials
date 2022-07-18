@@ -11,10 +11,10 @@ from tools import relative_error, relative_error_interp
 # maxdims = [600 + 200 * i for i in range(8)]
 #
 # fig = plt.figure()
-# axs = fig.subplots(3, sharex=True)
+# axs = fig.subplots(2, 2, sharex=True)
 #
-# for i in range(3):
-#     ax = axs[i]
+# for i in range(4):
+#     ax = axs[i // 2, i % 2]
 #     N = nsites[i]
 #     ax.set_title("N = {}".format(N))
 #     for U in Us:
@@ -24,10 +24,14 @@ from tools import relative_error, relative_error_interp
 #             curr = np.load("./Data/Tenpy/Basic/currents-nsteps{}-nsites{}-U{}-maxdim{}.npy".format(nsteps, N, U, md))
 #             errors.append(relative_error(exact, curr))
 #         ax.plot(maxdims, errors, label="$U/t_0 = {}$".format(U))
-#     ax.legend()
 #
-# axs[2].set_xlabel("Maximum Bond Dimension")
-# axs[1].set_ylabel("Percent Error")
+# handles, labels = axs[1,1].get_legend_handles_labels()
+# axs[1,1].legend(handles, labels, loc='upper right')
+#
+# fig.subplots_adjust(left=.1, bottom=.1, right=.98, top=.9, wspace=None, hspace=None)
+#
+# fig.supxlabel("Maximum Bond Dimension")
+# fig.supylabel("Percent Error")
 #
 # plt.show()
 
@@ -40,22 +44,27 @@ from tools import relative_error, relative_error_interp
 # maxdims = [600 + 200 * i for i in range(8)]
 #
 # fig = plt.figure()
-# axs = fig.subplots(3, sharex=True)
+# axs = fig.subplots(2, 2, sharex=True)
 #
-# for i in range(3):
-#     ax = axs[i]
+# for i in range(4):
+#     ax = axs[i // 2, i % 2]
 #     N = nsites[i]
 #     ax.set_title("N = {}".format(N))
 #     for U in Us:
 #         times = []
 #         for md in maxdims:
 #             t = np.load("./Data/Tenpy/Basic/metadata-nsteps{}-nsites{}-U{}-maxdim{}.npy".format(nsteps, N, U, md))
-#             times.append(t)
+#             times.append(float(t) / 3600)
 #         ax.plot(maxdims, times, label="$U/t_0 = {}$".format(U))
-#     ax.legend()
+#     # ax.legend()
 #
-# axs[2].set_xlabel("Maximum Bond Dimension")
-# axs[1].set_ylabel("Runtime")
+# handles, labels = axs[1,1].get_legend_handles_labels()
+# axs[1,1].legend(handles, labels, loc='lower right')
+#
+# fig.subplots_adjust(left=.15, bottom=.1, right=.98, top=.9, wspace=None, hspace=None)
+#
+# fig.supxlabel("Maximum Bond Dimension")
+# fig.supylabel("Runtime (hours)")
 #
 # plt.show()
 
@@ -69,9 +78,9 @@ from tools import relative_error, relative_error_interp
 # maxdim = 1000
 #
 # fig = plt.figure()
-# axs = fig.subplots(2, sharex=True)
+# axs = fig.subplots(3, sharex=True)
 #
-# for i in range(2):
+# for i in range(3):
 #     ax = axs[i]
 #     N = nsites[i]
 #     ax.set_title("N = {}".format(N))
@@ -80,13 +89,13 @@ from tools import relative_error, relative_error_interp
 #         exactts = np.load("./Data/Exact/times-nsteps{}.npy".format(nsteps))
 #         errors = []
 #         for eps in epsilons:
-#             curr = np.load("./Data/AdaptiveTimeStep/Basic/currents-nsteps{}-nsites{}-epsilon{}-U{}-maxdim{}.npy".format(nsteps, N, eps, U, maxdim))
-#             ts = np.load("./Data/AdaptiveTimeStep/Basic/times-nsteps{}-nsites{}-epsilon{}-U{}-maxdim{}.npy".format(nsteps, N, eps, U, maxdim))
+#             curr = np.load("./Data/AdaptiveTimeStep/Basic/currents-nsites{}-epsilon{}-U{}-maxdim{}.npy".format(N, eps, U, maxdim))
+#             ts = np.load("./Data/AdaptiveTimeStep/Basic/times-nsites{}-epsilon{}-U{}-maxdim{}.npy".format(N, eps, U, maxdim))
 #             errors.append(relative_error_interp(exact, exactts, curr, ts))
-#         ax.semilogx(epsilons, errors, label="$U/t_0 = {}$".format(U))
+#         ax.plot(-np.log10(epsilons), errors, label="$U/t_0 = {}$".format(U))
 #     ax.legend()
 #
-# axs[1].set_xlabel("Epsilon")
+# axs[2].set_xlabel("$10^{-\\epsilon}$")
 # axs[1].set_ylabel("Percent Error")
 #
 # plt.show()
@@ -115,7 +124,7 @@ from tools import relative_error, relative_error_interp
 #         ax.plot(-np.log10(epsilons), times, label="$U/t_0 = {}$".format(U))
 #     ax.legend()
 #
-# axs[1].set_xlabel("Epsilon")
+# axs[2].set_xlabel("$10^{-\\epsilon}$")
 # axs[1].set_ylabel("Time")
 #
 # plt.show()
