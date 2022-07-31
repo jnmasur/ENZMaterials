@@ -72,16 +72,16 @@ from tools import relative_error, relative_error_interp
 """Dynamic Time Step Error Analysis"""
 ######################################
 # nsteps = 4000
-# nsites = [6, 8, 10]
+# nsites = [6, 8, 10, 12]
 # epsilons = [.01, .001, .0001, 1e-5]
 # Us = [0., .5, 1., 2.]
 # maxdim = 1000
 #
 # fig = plt.figure()
-# axs = fig.subplots(3, sharex=True)
+# axs = fig.subplots(2, 2, sharex=True)
 #
-# for i in range(3):
-#     ax = axs[i]
+# for i in range(4):
+#     ax = axs[i // 2, i % 2]
 #     N = nsites[i]
 #     ax.set_title("N = {}".format(N))
 #     for U in Us:
@@ -93,10 +93,12 @@ from tools import relative_error, relative_error_interp
 #             ts = np.load("./Data/AdaptiveTimeStep/Basic/times-nsites{}-epsilon{}-U{}-maxdim{}.npy".format(N, eps, U, maxdim))
 #             errors.append(relative_error_interp(exact, exactts, curr, ts))
 #         ax.plot(-np.log10(epsilons), errors, label="$U/t_0 = {}$".format(U))
-#     ax.legend()
 #
-# axs[2].set_xlabel("$10^{-\\epsilon}$")
-# axs[1].set_ylabel("Percent Error")
+# handles, labels = axs[1,0].get_legend_handles_labels()
+# axs[1,0].legend(handles, labels, loc='upper right')
+#
+# fig.supxlabel("$-\\log_{10}\\epsilon}$")
+# fig.supylabel("Percent Error")
 #
 # plt.show()
 
@@ -104,27 +106,27 @@ from tools import relative_error, relative_error_interp
 ########################################
 """Dynamic Time Step Runtime Analysis"""
 ########################################
-# nsites = [6, 8, 10]
-# epsilons = [.01, .001, .0001, 1e-5]
-# Us = [0., .5, 1., 2.]
-# maxdim = 1000
-#
-# fig = plt.figure()
-# axs = fig.subplots(3, sharex=True)
-#
-# for i in range(3):
-#     ax = axs[i]
-#     N = nsites[i]
-#     ax.set_title("N = {}".format(N))
-#     for U in Us:
-#         times = []
-#         for eps in epsilons:
-#             t = np.load("./Data/AdaptiveTimeStep/Basic/metadata-nsites{}-epsilon{}-U{}-maxdim{}.npy".format(N, eps, U, maxdim))
-#             times.append(t)
-#         ax.plot(-np.log10(epsilons), times, label="$U/t_0 = {}$".format(U))
-#     ax.legend()
-#
-# axs[2].set_xlabel("$10^{-\\epsilon}$")
-# axs[1].set_ylabel("Time")
-#
-# plt.show()
+nsites = [6, 8, 10, 12]
+epsilons = [.01, .001, .0001, 1e-5]
+Us = [0., .5, 1., 2.]
+maxdim = 1000
+
+fig = plt.figure()
+axs = fig.subplots(2, 2, sharex=True)
+
+for i in range(4):
+    ax = axs[i // 2, i % 2]
+    N = nsites[i]
+    ax.set_title("N = {}".format(N))
+    for U in Us:
+        times = []
+        for eps in epsilons:
+            t = np.load("./Data/AdaptiveTimeStep/Basic/metadata-nsites{}-epsilon{}-U{}-maxdim{}.npy".format(N, eps, U, maxdim))
+            times.append(float(t) / 3600)
+        ax.plot(-np.log10(epsilons), times, label="$U/t_0 = {}$".format(U))
+    ax.legend()
+
+fig.supxlabel("$-\\log_{10}\\epsilon}$")
+fig.supylabel("Time (hours)")
+
+plt.show()
