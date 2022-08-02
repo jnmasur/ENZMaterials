@@ -180,7 +180,7 @@ class Engine:
 
         # enz simulation
         if self.c is not None:
-            fps = "-nsites{}-U{}-maxdim{}".format(self.p.nsites, self.p.u, self.options["trunc_params"]["chi_max"])
+            fps = "-nsites{}-U{}-F{}-maxdim{}".format(self.p.nsites, self.p.u, self.options["F0"], self.options["trunc_params"]["chi_max"])
             # load excited state (one that has been evolved by tl pulse)
             try:
                 with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'r') as f:
@@ -189,8 +189,6 @@ class Engine:
             # initital psi not saved yet, evolve and save it
             except Exception as e:
                 # evolve the system under pulse specified in evolution, and save the resulting state
-                # note: even if we are using an adaptive step for simulating enz, it is not
-                # necessary to obtain the initial state from an adaptive method
                 self.update(N_steps, delta_t)
                 with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
                     hdf5_io.save_to_hdf5(f, self.psi)
@@ -392,7 +390,6 @@ class Engine:
             tracking_times = self.tracking_info["times"]
             tracking_currents = self.tracking_info["currents"]
         i = 0  # for keeping track of when a timestep completes
-        prev_psi = copy.deepcopy(self.psi)
         # returns [(0, odd boolean), (1, even_boolean), (0, odd_boolean)] * N
         # boolean is actually just an integer 0 - false, 1 - true
         for U_idx_dt, odd in self.suzuki_trotter_decomposition(order, N_steps):
@@ -402,10 +399,6 @@ class Engine:
             # the if statement indicates that one time step of the order 2
             # method ONLY has completed
             if i % 3 == 0:
-                gc.collect()  # collect all garbage
-                # print(difference(prev_psi, self.psi))
-                # del prev_psi
-                # prev_psi = copy.deepcopy(self.psi)
                 self.time += delta_t
                 t = time.time() - ti  # time simulation has been running
                 complete = i / (N_steps * 3)  # proportion complete (2nd order)

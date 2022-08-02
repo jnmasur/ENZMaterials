@@ -1,36 +1,28 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from tools import relative_error, phi_tl, Parameters
+from tools import relative_error, phi_tl, Parameters, relative_error_interp
 from scipy.stats import linregress
 
 """CODE FOR PLOTTING ENZ"""
-# nsteps = 4000
-# nsites = 10
-# uot = 0.5
-# maxdim = 800
-# c = 0.25 # scaling factor
-# eps = None
-#
-# dir = "./Data/"
-# params = ""
-# if nsteps is not None:
-#     dir += "Tenpy/ENZ/"
-#     params += "-nsteps{}".format(nsteps)
-# params += "-nsites{}".format(nsites)
-# if eps is not None:
-#     dir += "AdaptiveTimeStep/ENZ/"
-#     params += "-epsilon{}".format(eps)
-# params += "-U{}-c{}-maxdim{}".format(uot, c, maxdim)
-#
-# currents = np.load(dir + "currents" + params + ".npy")
-# phis = np.load(dir + "phis" + params + ".npy")
-# plt.plot(currents, color="blue")
-# plt.plot(phis, ls="dashed", color="orange", label="$\\Phi(t)$")
-# plt.xlabel("Time Step")
-# plt.ylabel("Current")
-# plt.legend()
-# plt.show()
-# print(relative_error(phis * c, currents))
+nsteps = 4000
+nsites = 4
+uot = 0.
+maxdim = 200
+c = 1. # scaling factor
+F0 = 10.
+
+dir = "./Data/Tenpy/ENZ/"
+params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+
+currents = np.load(dir + "currents" + params + ".npy")
+phis = np.load(dir + "phis" + params + ".npy")
+print(relative_error(phis * c, currents))
+plt.plot(currents, color="blue")
+plt.plot(phis, ls="dashed", color="orange", label="$\\Phi(t)$")
+plt.xlabel("Time Step")
+plt.ylabel("Current")
+plt.legend()
+plt.show()
 
 """CODE FOR PLOTTING TRACKING"""
 # nsteps = 2000
@@ -81,10 +73,10 @@ from scipy.stats import linregress
 
 """CODE FOR PLOTTING MPS VS EXACT"""
 # nsteps = 4000
-# nsites = 12
+# nsites = 10
 # uot = 0.
-# maxdim = 1800
-# eps = None
+# maxdim = 1000
+# eps = 1e-5
 #
 # # adaptive time step for mps
 # if eps is not None:
@@ -104,6 +96,8 @@ from scipy.stats import linregress
 # times = np.load(mpsdir + "times" + mpstparams + ".npy")
 # ecurrents = np.load(exactdir + "current" + exactparams + ".npy")
 # etimes = np.load(exactdir + "times" + exacttparams + ".npy")
+
+# print(relative_error_interp(ecurrents, etimes, currents, times))
 #
 # plt.plot(times, currents, color="blue")
 # plt.plot(etimes, ecurrents, ls="dashed", color="orange", label="Exact Current")
@@ -111,7 +105,10 @@ from scipy.stats import linregress
 # plt.xlabel("Time")
 # plt.ylabel("Current")
 # plt.legend()
+# plt.savefig("./Data/Images/Comparison-exact" + exactparams + "-mps" + mpsparams + ".png")
 # plt.show()
+plt.plot(np.diff(times))
+plt.show()
 
 
 """PLOTTING CURRENT SCALING WITH SYSTEM SIZE"""
