@@ -49,9 +49,9 @@ for i in range(1, len(sys.argv), 2):
 """IMPORTANT PARAMETERS"""
 ##########################
 # maximum bond dimension, used for both DMRG and TEBD, multiple of 200
-maxdim = 200 if maxdim is None else maxdim
-N = 4 if N is None else N
-iU = 0. * it if iU is None else iU
+maxdim = 1000 if maxdim is None else maxdim
+N = 10 if N is None else N
+iU = 0.5 * it if iU is None else iU
 # the number of steps if not apdative
 nsteps = 4000 if nsteps is None else nsteps
 iF0 = 10. if iF0 is None else iF0
