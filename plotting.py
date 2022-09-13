@@ -1,28 +1,155 @@
 import numpy as np
 from matplotlib import pyplot as plt
-from tools import relative_error, phi_tl, Parameters, relative_error_interp
+from tools import relative_error, phi_tl, Parameters, relative_error_interp, spectrum
 from scipy.stats import linregress
 
 """CODE FOR PLOTTING ENZ"""
+# nsteps = 4000
+# nsites = 10
+# uot = 1.
+# maxdim = 1000
+# c = 4. # scaling factor
+# F0 = 10.
+#
+# dir = "./Data/Tenpy/ENZ/"
+# params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#
+# currents = np.load(dir + "currents" + params + ".npy")
+# phis = np.load(dir + "phis" + params + ".npy")
+# print(relative_error(phis * c, currents))
+# plt.plot(currents, color="blue")
+# plt.plot(phis, ls="dashed", color="orange", label="$\\Phi(t)$")
+# plt.xlabel("Time Step")
+# plt.ylabel("Current")
+# plt.legend()
+# plt.savefig("./Data/Images/ENZ/" + params[1:] + ".png")
+# plt.show()
+
+"""PLOT ENZ PHIS AGAINST EACH OTHER"""
 nsteps = 4000
-nsites = 4
-uot = 0.
-maxdim = 200
-c = 1. # scaling factor
+nsites = 10
+uot = 1.
+maxdim = 1000
+c = 4. # scaling factor
 F0 = 10.
 
 dir = "./Data/Tenpy/ENZ/"
-params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+fig, axs = plt.subplots(1, 3, sharex=True, figsize=(12, 4))
 
-currents = np.load(dir + "currents" + params + ".npy")
-phis = np.load(dir + "phis" + params + ".npy")
-print(relative_error(phis * c, currents))
-plt.plot(currents, color="blue")
-plt.plot(phis, ls="dashed", color="orange", label="$\\Phi(t)$")
-plt.xlabel("Time Step")
-plt.ylabel("Current")
-plt.legend()
+for i, uot in enumerate([.5, 1., 2.]):
+    for c in [.25, .5, 1., 2., 4.]:
+        params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+        phis = np.load(dir + "phis" + params + ".npy")
+        axs[i].plot(phis, label="c={}".format(c))
+
+    axs[i].set_title("$U/t_0$={}".format(uot))
+    axs[i].legend()
+
+axs[1].set_xlabel("Time Step")
+axs[0].set_ylabel("$\\Phi$")
+
+fig.subplots_adjust(left=.07, bottom=.15, right=.98, top=.92, wspace=.2, hspace=None)
+
+plt.savefig("./Data/Images/PhiVsKappa-F{}.png".format(F0))
 plt.show()
+
+"""PLOT ENZ ENERGIES AGAINST EACH OTHER"""
+# nsteps = 4000
+# nsites = 10
+# uot = 2.
+# maxdim = 1000
+# c = 1. # scaling factor
+# F0 = 5.
+#
+# dir = "./Data/Tenpy/ENZ/"
+#
+# fig, axs = plt.subplots(1, 3, sharex=True, figsize=(12, 4))
+#
+# for i, uot in enumerate([.5, 1., 2.]):
+#     for c in [.25, .5, 1., 2., 4.]:
+#         params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#         energies = np.load(dir + "energies" + params + ".npy")
+#         axs[i].plot(energies, label="c={}".format(c))
+#
+#     axs[i].set_title("$U/t_0$={}".format(uot))
+#     axs[i].legend()
+#
+# axs[1].set_xlabel("Time Step")
+# axs[0].set_ylabel("Energy")
+#
+# fig.subplots_adjust(left=.09, bottom=.15, right=.98, top=.92, wspace=.2, hspace=None)
+#
+# plt.savefig("./Data/Images/EnergyVsKappa-F{}.png".format(F0))
+#
+# plt.show()
+
+"""PLOT ENZ SPECTRA"""
+# nsteps = 4000
+# nsites = 10
+# uot = 0.5
+# maxdim = 1000
+# c = 1. # scaling factor
+# F0 = 10.  # ONLY WORKS WITH 10 F0 RN
+#
+# # getting frequency in AU
+# t = .52
+# freq = 32.9 * 0.0001519828442 / (2 * np.pi * t * 0.036749323)
+#
+# dir = "./Data/Tenpy/ENZ/"
+# # params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+# #
+# # times = np.load(dir + "times-nsteps{}.npy".format(nsteps))
+# # delta = times[1] - times[0]
+# #
+# # current2 = np.load(dir + "currents" + params + ".npy").real
+# # current1 = np.load("./Data/Tenpy/Basic/currents-nsteps{}-nsites{}-U{}-maxdim{}.npy".format(nsteps, nsites, uot, maxdim)).real
+# # currents = np.append(current1, current2)
+# #
+# # freq1, spec1 = spectrum(current1, delta)
+# # freqs, specs = spectrum(currents, delta)
+# # plt.semilogy(freq1, spec1)
+# # plt.semilogy(freqs, specs, label="ENZ")
+# # plt.legend()
+# # plt.show()
+#
+# times = np.load(dir + "times-nsteps{}.npy".format(nsteps))
+# current1 = np.load("./Data/Tenpy/Basic/currents-nsteps{}-nsites{}-U{}-maxdim{}.npy".format(nsteps, nsites, uot, maxdim)).real
+# delta = times[1] - times[0]
+# freq1, spec1 = spectrum(current1, delta)
+# freq1 /= freq
+# plt.semilogy(freq1, spec1)
+# current1 = np.load("./Data/Tenpy/Basic/currents-nsteps{}-nsites{}-U{}-maxdim{}.npy".format(nsteps, nsites, uot, maxdim)).real
+# for c in [.25, .5, 1., 2., 4.]:
+#     params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#
+#     current2 = np.load(dir + "currents" + params + ".npy").real
+#     zindx = np.where(abs(current2) < 1e-5)[0][-1]
+#     current2 = current2[:zindx]
+#     # currents = np.append(current1, current2)
+#     # freqs, specs = spectrum(currents, delta)
+#     freqs, specs = spectrum(current2, delta)
+#     freqs /= freq
+#
+#     plt.semilogy(freqs, specs, label="c={}".format(c))
+#
+# plt.legend()
+# plt.xlim((0, None))
+# plt.xlabel("Harmonic Order")
+# plt.ylabel("Spectrum")
+# plt.title("$U/t_0 = {}$".format(uot))
+# plt.show()
+
+
+"""PLOT ENZ INDUCED BY PRELOADED FIELD"""
+# savedir = "./Data/Tenpy/ENZ/"
+# ecps = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(4000, 10, 0.5, 1., 10., 1000)
+# currents = np.load(savedir + "TEST" + "currents" + ecps + ".npy")
+# phis = np.load(savedir + "TEST" + "phis" + ecps + ".npy")
+#
+# plt.plot(currents, label="J(t)")
+# plt.plot(phis, label="phi(t)", ls="dashed")
+# plt.legend()
+# plt.show()
 
 """CODE FOR PLOTTING TRACKING"""
 # nsteps = 2000
@@ -107,8 +234,8 @@ plt.show()
 # plt.legend()
 # plt.savefig("./Data/Images/Comparison-exact" + exactparams + "-mps" + mpsparams + ".png")
 # plt.show()
-plt.plot(np.diff(times))
-plt.show()
+# plt.plot(np.diff(times))
+# plt.show()
 
 
 """PLOTTING CURRENT SCALING WITH SYSTEM SIZE"""
