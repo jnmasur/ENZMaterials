@@ -4,7 +4,8 @@ import time
 import datetime
 import logging
 import warnings
-warnings.filterwarnings('ignore', "Unused*")
+warnings.filterwarnings('ignore', "Unused")
+warnings.filterwarnings('error', "overflow")
 
 from tenpy.linalg import np_conserved as npc
 from tenpy.algorithms.mpo_evolution import ExpMPOEvolution
@@ -90,11 +91,15 @@ class TimeDependentExpMPOEvolution(ExpMPOEvolution):
         phis = [0.]
         times = [self.evolved_time]
         psis = [self.psi]
+        print(self.psi.norm)
         for step in range(1, N_steps+1):
             self.calc_U(dt, order, approximation)
             for U_MPO in self._U_MPO:
-                trunc_err += U_MPO.apply(self.psi, self.options)
-
+                try:
+                    trunc_err += U_MPO.apply(self.psi, self.options)
+                except Exception as e:
+                    print(phis[-1])
+                    print(self.psi.norm)
             self.evolved_time = self.evolved_time + dt
             times.append(self.evolved_time)
             psis.append(self.psi)

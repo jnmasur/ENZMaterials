@@ -3,29 +3,56 @@ from matplotlib import pyplot as plt
 import matplotlib as mpl
 from tools import relative_error, relative_error_interp
 
+###########################################
+"""COMPARING ENERGY TO CURRENT AND KAPPA"""
+###########################################
+# nsteps = 4000
+# nsites = 10
+# uot = 0.5
+# c = 2.
+# maxdim = 1000
+# F0 = 10.
+#
+# dir = "./Data/Tenpy/ENZ/"
+# params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+# times = np.load("./Data/Tenpy/ENZ/times-nsteps{}.npy".format(nsteps))
+# delta = times[1] - times[0]
+#
+# # energies = np.load(dir + "energies" + params + ".npy")
+# # currents = np.load(dir + "currents" + params + ".npy")
+# # phis = np.load(dir + "phis" + params + ".npy")
+# energies = np.load("Data/Tenpy/ENZ/INITIALPHITEST-energies-nsteps4000-nsites10-U0.5-c1.0-F10.0-maxdim1000.npy")
+# currents = np.load("Data/Tenpy/ENZ/INITIALPHITEST-currents-nsteps4000-nsites10-U0.5-c1.0-F10.0-maxdim1000.npy")
+# phis = np.load("Data/Tenpy/ENZ/INITIALPHITEST-phis-nsteps4000-nsites10-U0.5-c1.0-F10.0-maxdim1000.npy")
+# # efield_energy = .5 * np.gradient(phis, delta)**2
+#
+# plt.plot(energies - .5 * (nsites / c) * currents**2)
+# plt.show()
+
+
 ######################################
 """COMPARING THE PHIS TO EACH OTHER"""
 ######################################
-nsteps = 4000
-nsites = 10
-uot = 0.5
-maxdim = 1000
-c = 4. # scaling factor
-F0 = 10.
-
-dir = "./Data/Tenpy/ENZ/"
-fig, axs = plt.subplots(1, 3, sharex=True, figsize=(12, 4))
-
-enzphis = []
-for c in [.25, .5, 1., 2., 4.]:
-    params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
-    phis = np.load(dir + "phis" + params + ".npy")
-    enzphis.append(phis / np.max(phis))
-
-for i in range(5):
-    for j in range(5):
-        print("{:.2f}".format(relative_error(enzphis[i], enzphis[j])), end=" ")
-    print()
+# nsteps = 4000
+# nsites = 10
+# uot = 0.5
+# maxdim = 1000
+# c = 4. # scaling factor
+# F0 = 10.
+#
+# dir = "./Data/Tenpy/ENZ/"
+# fig, axs = plt.subplots(1, 3, sharex=True, figsize=(12, 4))
+#
+# enzphis = []
+# for c in [.25, .5, 1., 2., 4.]:
+#     params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#     phis = np.load(dir + "phis" + params + ".npy")
+#     enzphis.append(phis / np.max(phis))
+#
+# for i in range(5):
+#     for j in range(5):
+#         print("{:.2f}".format(relative_error(enzphis[i], enzphis[j])), end=" ")
+#     print()
 
 
 #########################################################

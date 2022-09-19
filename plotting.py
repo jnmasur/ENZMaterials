@@ -26,32 +26,48 @@ from scipy.stats import linregress
 # plt.show()
 
 """PLOT ENZ PHIS AGAINST EACH OTHER"""
+# nsteps = 4000
+# nsites = 10
+# uot = 1.
+# maxdim = 1000
+# c = 4. # scaling factor
+# F0 = 10.
+#
+# dir = "./Data/Tenpy/ENZ/"
+# fig, axs = plt.subplots(1, 3, sharex=True, figsize=(12, 4))
+#
+# for i, uot in enumerate([.5, 1., 2.]):
+#     for c in [.25, .5, 1., 2., 4.]:
+#         params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#         phis = np.load(dir + "phis" + params + ".npy")
+#         axs[i].plot(phis, label="c={}".format(c))
+#
+#     axs[i].set_title("$U/t_0$={}".format(uot))
+#     axs[i].legend()
+#
+# axs[1].set_xlabel("Time Step")
+# axs[0].set_ylabel("$\\Phi$")
+#
+# fig.subplots_adjust(left=.07, bottom=.15, right=.98, top=.92, wspace=.2, hspace=None)
+#
+# plt.savefig("./Data/Images/PhiVsKappa-F{}.png".format(F0))
+# plt.show()
+
+"""PLOT CHANGE IN ENERGY AGAINST 1/KAPPA"""
 nsteps = 4000
 nsites = 10
-uot = 1.
-maxdim = 1000
-c = 4. # scaling factor
+uot = 2.
 F0 = 10.
+maxdim = 1000
 
 dir = "./Data/Tenpy/ENZ/"
-fig, axs = plt.subplots(1, 3, sharex=True, figsize=(12, 4))
+for c in [.25, .5, 1., 2., 4.]:
+    params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+    energies = np.load(dir + "energies" + params + ".npy")
+    plt.plot(1/c, energies[-1] - energies[0], marker="o")
 
-for i, uot in enumerate([.5, 1., 2.]):
-    for c in [.25, .5, 1., 2., 4.]:
-        params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
-        phis = np.load(dir + "phis" + params + ".npy")
-        axs[i].plot(phis, label="c={}".format(c))
-
-    axs[i].set_title("$U/t_0$={}".format(uot))
-    axs[i].legend()
-
-axs[1].set_xlabel("Time Step")
-axs[0].set_ylabel("$\\Phi$")
-
-fig.subplots_adjust(left=.07, bottom=.15, right=.98, top=.92, wspace=.2, hspace=None)
-
-plt.savefig("./Data/Images/PhiVsKappa-F{}.png".format(F0))
 plt.show()
+
 
 """PLOT ENZ ENERGIES AGAINST EACH OTHER"""
 # nsteps = 4000
@@ -59,7 +75,7 @@ plt.show()
 # uot = 2.
 # maxdim = 1000
 # c = 1. # scaling factor
-# F0 = 5.
+# F0 = 10.
 #
 # dir = "./Data/Tenpy/ENZ/"
 #
@@ -69,7 +85,7 @@ plt.show()
 #     for c in [.25, .5, 1., 2., 4.]:
 #         params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
 #         energies = np.load(dir + "energies" + params + ".npy")
-#         axs[i].plot(energies, label="c={}".format(c))
+#         axs[i].plot(energies[-1] - energies, label="c={}".format(c))
 #
 #     axs[i].set_title("$U/t_0$={}".format(uot))
 #     axs[i].legend()
@@ -83,7 +99,72 @@ plt.show()
 #
 # plt.show()
 
-"""PLOT ENZ SPECTRA"""
+"""PLOT INDUCTOR ENERGIES"""
+# nsteps = 4000
+# nsites = 10
+# uot = 2.
+# maxdim = 1000
+# c = 1. # scaling factor
+# F0 = 10.
+#
+# dir = "./Data/Tenpy/ENZ/"
+#
+# fig, axs = plt.subplots(2, 3, sharex=True, figsize=(12, 6))
+#
+# for i, uot in enumerate([.5, 1., 2.]):
+#     for c in [.25, .5, 1., 2., 4.]:
+#         params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#         energies = np.load(dir + "energies" + params + ".npy")
+#         currents = np.load(dir + "currents" + params + ".npy")
+#         axs[0, i].plot((energies - energies[0]) - ((nsites / c) * (currents**2 - currents[0]**2)), label="c={}".format(c))
+#         axs[1, i].plot((nsites / c) * (currents**2 - currents[0]**2), label="c={}".format(c))
+#
+#     axs[0, i].set_title("$U/t_0$={}".format(uot))
+#     axs[0, i].legend()
+#
+# axs[1, 1].set_xlabel("Time Step")
+# axs[0, 0].set_ylabel("Energy")
+# axs[1, 0].set_ylabel("Inductor Energy")
+#
+# fig.subplots_adjust(left=.09, bottom=.15, right=.98, top=.92, wspace=.2, hspace=None)
+#
+# # plt.savefig("./Data/Images/EnergyVsKappa-F{}.png".format(F0))
+#
+# plt.show()
+
+"""PLOT A SINGLE ENZ SPECTRUM AGAINST THE TL SPECTRUM"""
+# nsteps = 4000
+# nsites = 10
+# uot = 0.5
+# maxdim = 1000
+# c = 1. # scaling factor
+# F0 = 10.  # ONLY WORKS WITH 10 F0 RN
+#
+# # getting frequency in AU
+# t = .52
+# freq = 32.9 * 0.0001519828442 / (2 * np.pi * t * 0.036749323)
+#
+# dir = "./Data/Tenpy/ENZ/"
+# params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+# phis = np.load(dir + "phis" + params + ".npy")
+#
+# phitl = np.load("./Data/Tenpy/Basic/phis-nsteps4000-a4-f10-w32.9-cycles10.npy")
+# times = np.load("./Data/Tenpy/Basic/times-nsteps4000.npy")
+# delta = times[1] - times[0]
+#
+# efreqs, especs = spectrum(phis, delta)
+# tlfreqs, tlspecs = spectrum(phitl, delta)
+#
+# efreqs /= freq
+# tlfreqs /= freq
+#
+# plt.semilogy(efreqs, especs, label="ENZ")
+# plt.semilogy(tlfreqs, tlspecs, label="TL")
+# plt.legend()
+# plt.show()
+
+
+"""PLOT ENZ SPECTRA AGAINST EACH OTHER"""
 # nsteps = 4000
 # nsites = 10
 # uot = 0.5

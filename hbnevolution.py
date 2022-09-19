@@ -55,7 +55,7 @@ nsteps = 4000 if nsteps is None else nsteps
 iF0 = 10. if iF0 is None else iF0
 
 kwargs = {}
-enz = True
+enz = False
 if enz:
     kappa = 1.
     kwargs["kappa"] = kappa
@@ -126,7 +126,7 @@ tf = 2 * np.pi * cycles / p.field
 times, delta = np.linspace(ti, tf, num=nsteps, endpoint=True, retstep=True)
 # we pass in nsteps - 1 because we would like to evauluate the system at
 # nsteps time points, including the ground state calculations
-tebd_dict = {"dt":delta, "order":1, "start_time":ti, "start_trunc_err":TruncationError(eps=maxerr), "trunc_params":{"svd_min":maxerr, "chi_max":maxdim}, "N_steps":nsteps-1, "F0":iF0, "compression_method":"variational"}
+tebd_dict = {"dt":delta, "order":1, "start_time":ti, "start_trunc_err":TruncationError(eps=maxerr), "trunc_params":{"svd_min":maxerr, "chi_max":maxdim}, "N_steps":nsteps-1, "F0":iF0, "compression_method":"SVD"}
 tebd_params = Config(tebd_dict, "TEBD-trunc_err{}-nsteps{}".format(maxerr, nsteps))
 evolver = WPO1(psi, model, tebd_params, phi_func, material="HBN", kwargs=kwargs)
 times, phis, psis = evolver.run(enz)
