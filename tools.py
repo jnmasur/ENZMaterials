@@ -306,48 +306,45 @@ HBNNearestNeighbor = GrapheneNearestNeighbor
 HBNCurrent = GrapheneCurrent
 
 
-# class NearestNeighborCommutatorModel(CouplingMPOModel):
-#     def __init__(self, p):
-#         model_dict = {"bc_MPS":"finite", "cons_N":"N", "cons_Sz":"Sz", 'explicit_plus_hc':False,
-#         "L":p.nsites}
-#         model_params = Config(model_dict, "NNComm")
-#         CouplingMPOModel.__init__(self, model_params)
-#
-#     def init_sites(self, model_params):
-#         cons_N = model_params.get('cons_N', 'N')
-#         cons_Sz = model_params.get('cons_Sz', 'Sz')
-#         site = SpinHalfFermionSite(cons_N=cons_N, cons_Sz=cons_Sz)
-#         return site
-#
-#     def init_terms(self, model_params):
-#         # 0) Read out/set default parameters.
-#         L = model_params.get('L', 10)
-#
-#         self.add_onsite_term(1., 0, 'Ntot')
-#         self.add_onsite_term(1., L-1, 'Ntot')
-#
-# class InteractionNNCommutatorModel(CouplingMPOModel):
-#     def __init__(self, p):
-#         model_dict = {"bc_MPS":"finite", "cons_N":"N", "cons_Sz":"Sz", 'explicit_plus_hc':False,
-#         "L":p.nsites, "a":p.a}
-#         model_params = Config(model_dict, "NNComm")
-#         CouplingMPOModel.__init__(self, model_params)
-#
-#     def init_sites(self, model_params):
-#         cons_N = model_params.get('cons_N', 'N')
-#         cons_Sz = model_params.get('cons_Sz', 'Sz')
-#         site = SpinHalfFermionSite(cons_N=cons_N, cons_Sz=cons_Sz)
-#         return site
-#
-#     def init_terms(self, model_params):
-#         # 0) Read out/set default parameters.
-#         L = model_params.get('L', 10)
-#
-#         for i in range(L-1):
-#             self.add_local_term(-1., [("Nu", [i+1, 0]), ("Cdd", [i, 0]), ("Cd", [i+1, 0])])
-#             self.add_local_term(1., [("Nu", [i, 0]), ("Cdd", [i, 0]), ("Cd", [i+1, 0])])
-#             self.add_local_term(-1., [("Cdu", [i, 0]), ("Cu", [i+1, 0]), ("Nd", [i+1, 0])])
-#             self.add_local_term(1., [("Cdu", [i, 0]), ("Cu", [i+1, 0]), ("Nd", [i, 0])])
+class NearestNeighborCommutatorModel(CouplingMPOModel):
+    def __init__(self, p):
+        model_dict = {"bc_MPS":"finite", "cons_N":"N", "cons_Sz":"Sz", 'explicit_plus_hc':False,
+        "L":p.nsites}
+        model_params = Config(model_dict, "NNComm")
+        CouplingMPOModel.__init__(self, model_params)
+
+    def init_sites(self, model_params):
+        cons_N = model_params.get('cons_N', 'N')
+        cons_Sz = model_params.get('cons_Sz', 'Sz')
+        site = SpinHalfFermionSite(cons_N=cons_N, cons_Sz=cons_Sz)
+        return site
+
+    def init_terms(self, model_params):
+        # 0) Read out/set default parameters.
+        L = model_params.get('L', 10)
+
+        self.add_onsite_term(1., 0, 'Ntot')
+        self.add_onsite_term(-1., L-1, 'Ntot')
+
+class InteractionNNCommutatorModel(CouplingMPOModel):
+    def __init__(self, p):
+        model_dict = {"bc_MPS":"finite", "cons_N":"N", "cons_Sz":"Sz", 'explicit_plus_hc':False,
+        "L":p.nsites, "a":p.a}
+        model_params = Config(model_dict, "NNComm")
+        CouplingMPOModel.__init__(self, model_params)
+
+    def init_sites(self, model_params):
+        cons_N = model_params.get('cons_N', 'N')
+        cons_Sz = model_params.get('cons_Sz', 'Sz')
+        site = SpinHalfFermionSite(cons_N=cons_N, cons_Sz=cons_Sz)
+        return site
+
+    def init_terms(self, model_params):
+        for u1, u2, dx in self.lat.pairs['nearest_neighbors']:
+            self.add_coupling(-1., u1, 'Cdd', u2, 'Nu Cd', dx)
+            self.add_coupling(1., u1, 'Nu Cdd', u2, 'Cd', dx)
+            self.add_coupling(-1., u1, 'Cdu', u2, 'Nd Cu', dx)
+            self.add_coupling(1., u1, 'Nd Cdu', u2, 'Cu', dx)
 
 def get_phi(fh, model_params, evals):
     """
@@ -437,6 +434,7 @@ def phi_enz(p, nnop, psi, kappa, scale):
     expec = nnop.expectation_value(psi)
     r = np.abs(expec)
     theta = np.angle(expec)
+    scale = scale / r
     y = kappa / (2 * p.a* p.t0 *r)
     # when this function is 0, induced current = phi
     f = lambda phi: np.sin(phi - theta) + y * phi + scale

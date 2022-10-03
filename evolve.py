@@ -13,7 +13,7 @@ from tenpy.algorithms.truncation import svd_theta, TruncationError
 from tenpy.tools.params import asConfig, Config
 from tenpy.tools import hdf5_io
 
-from tools import phi_tl, phi_enz
+from tools import *
 
 class TimeDependentExpMPOEvolution(ExpMPOEvolution):
     """Variant of :class:`ExpMPOEvolution` that can handle time-dependent hamiltonians.
@@ -62,7 +62,9 @@ class TimeDependentExpMPOEvolution(ExpMPOEvolution):
                     hdf5_io.save_to_hdf5(f, self.psi)
                 self.kwargs = enzkwargs
 
-            self.kwargs["scale"] = np.sin(np.angle(self.kwargs["nnop"].expectation_value(self.psi)))
+            expec = self.kwargs["nnop"].expectation_value(self.psi)
+            r, theta = np.abs(expec), np.angle(expec)
+            self.kwargs["scale"] = r * np.sin(theta)
             self.evolved_time = self.time = 0.0
             self.phi_func = phi_enz
             self.reinit_model(0.0)
@@ -90,7 +92,7 @@ class TimeDependentExpMPOEvolution(ExpMPOEvolution):
         trunc_err = TruncationError()
         phis = [0.]
         times = [self.evolved_time]
-        psis = [self.psi]
+        psis = [self.psi.copy()]
         print(self.psi.norm)
         for step in range(1, N_steps+1):
             self.calc_U(dt, order, approximation)
@@ -102,7 +104,7 @@ class TimeDependentExpMPOEvolution(ExpMPOEvolution):
                     print(self.psi.norm)
             self.evolved_time = self.evolved_time + dt
             times.append(self.evolved_time)
-            psis.append(self.psi)
+            psis.append(self.psi.copy())
             phi = self.reinit_model()  # use the updated model for the next measurement!
             phis.append(phi)
 
@@ -172,7 +174,6 @@ class TimeDependentExpMPOEvolution(ExpMPOEvolution):
         return phi
 
 
-
 class TEBD:
     """Time Evolving Block Decimation (TEBD) algorithm.
     Parameters
@@ -233,13 +234,20 @@ class TEBD:
     _update_index : None | (int, int)
         The indices ``i_dt,i_bond`` of ``U_bond = self._U[i_dt][i_bond]`` during update_step.
     """
-    def __init__(self, psi, model, options):
+    def __init__(self, psi, model, p, phi_func, tracking_info, c, options):
         self.options = options = asConfig(options, "TEBD")
         self.trunc_params = options.subconfig('trunc_params')
         self.psi = psi
         self.model = model
-
-        self.evolved_time = options.get('start_time', 0.)
+        self.nnop = FHNearestNeighbor(p).H_MPO  # nearest neighbor operator
+        self.p = p
+        # phi_func should either be a dictionary with keys 'times' and 'phis'
+        # or a function that can be called to calculate the value of phi
+        assert type(phi_func) is dict or callable(phi_func)
+        self.phi_func = phi_func
+        self.tracking_info = tracking_info
+        self.c = c
+        self.evolved_time = self.time = options.get('start_time', 0.)
         self.trunc_err = options.get('start_trunc_err', TruncationError())
         self._U = None
         self._U_param = {}
@@ -256,7 +264,7 @@ class TEBD:
         """truncation error introduced on each non-trivial bond."""
         return self._trunc_err_bonds[self.psi.nontrivial_bonds]
 
-    def run(self, enz=False, tracking=False, expectations=[]):
+    def run(self):
         """(Real-)time evolution with TEBD (time evolving block decimation).
 
         .. cfg:configoptions :: TEBD
@@ -271,7 +279,6 @@ class TEBD:
                 Order of the algorithm. The total error scales as ``O(t*dt^order)``.
 
         """
-        assert not (tracking and enz)
         # initialize parameters
         delta_t = self.options.get('dt', 0.1)
         N_steps = self.options.get('N_steps', 10)
@@ -282,9 +289,8 @@ class TEBD:
         final_t = N_steps * delta_t
 
         # enz simulation
-        if enz:
-            self.options["phi_func"] = phi_tl
-            fps = "-nsites{}-U{}-F{}-maxdim{}".format(self.options["p"].nsites, self.options["p"].u, self.options["F0"], self.options["trunc_params"]["chi_max"])
+        if self.c is not None:
+            fps = "-nsites{}-U{}-F{}-maxdim{}".format(self.p.nsites, self.p.u, self.options["F0"], self.options["trunc_params"]["chi_max"])
             # load excited state (one that has been evolved by tl pulse)
             try:
                 with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'r') as f:
@@ -293,28 +299,21 @@ class TEBD:
             # initital psi not saved yet, evolve and save it
             except Exception as e:
                 # evolve the system under pulse specified in evolution, and save the resulting state
-                self.update(N_steps, delta_t, expectations)
+                self.update(N_steps, delta_t)
                 with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
                     hdf5_io.save_to_hdf5(f, self.psi)
 
-            self.options["scale"] = np.sin(np.angle(self.nnop.H_MPO.expectation_value(self.psi)))  # initial condition
-            self.evolved_time = self.options["time"] = 0.0
-            self.options["phi_func"] = phi_enz
-            expectations = self.reinit_model(expectations)
+            expec = self.nnop.expectation_value(self.psi)
+            r, theta = np.abs(expec), np.angle(expec)
+            self.scale = r * np.sin(theta)
+            self.time = 0.0
+            self.phi_func = phi_enz
+            self.update_operators(None)
             # evolve the system such that the trajectory follows the input pulse
             self.calc_U(TrotterOrder, delta_t, type_evo='real', E_offset=None)
 
-            trunc_err, times, phis, evals = self.update(N_steps, delta_t, expectations)
-
-        elif tracking:
-            self.options["phi_func"] = phi_tracking
-            trunc_err, times, phis, evals = self.update(N_steps, delta_t, expectations)
-
-        else:
-            self.options["phi_func"] = phi_tl
-            trunc_err, times, phis, evals = self.update(N_steps, delta_t, expectations)
-
-        return times, phis, evals
+        trunc_err, times, phis, psis = self.update(N_steps, delta_t)
+        return times, phis, psis
 
     @staticmethod
     def suzuki_trotter_time_steps(order):
@@ -377,12 +376,43 @@ class TEBD:
             state ``|psi>`` yields ``(exp(N_steps t H[k]) + O(N_steps t^{order+1}))|psi>``.
         """
         even, odd = 0, 1
-        if order == 2:
+        if N_steps == 0:
+            return []
+        if order == 1:
+            a = (0, odd)
+            b = (0, even)
+            return [a, b] * N_steps
+        elif order == 2:
             a = (0, odd)  # dt/2
             a2 = (1, odd)  # dt
             b = (1, even)  # dt
+            # U = [a b a]*N
+            #   = a b [a2 b]*(N-1) a
+            # return [a, b] + [a2, b] * (N_steps - 1) + [a]
             return [a, b, a] * N_steps
-
+        elif order == 4:
+            a = (0, odd)  # t1/2
+            a2 = (1, odd)  # t1
+            b = (1, even)  # t1
+            c = (2, odd)  # (t1 + t3) / 2 == (1 - 3 * t1)/2
+            d = (3, even)  # t3 = 1 - 4 * t1
+            # From Schollwoeck 2011 (:arxiv:`1008.3477`):
+            # U = U(t1) U(t2) U(t3) U(t2) U(t1)
+            # with U(dt) = U(dt/2, odd) U(dt, even) U(dt/2, odd) and t1 == t2
+            # Using above definitions, we arrive at:
+            # U = [a b a2 b c d c b a2 b a] * N
+            #   = [a b a2 b c d c b a2 b] + [a2 b a2 b c d c b a2 b a] * (N-1) + [a]
+            # steps = [a, b, a2, b, c, d, c, b, a2, b]
+            # steps = steps + [a2, b, a2, b, c, d, c, b, a2, b] * (N_steps - 1)
+            # steps = steps + [a]
+            # return steps
+            return [a, b, a2, b, c, d, c, b, a2, b, a] * N_steps
+        elif order == '4_opt':
+            # symmetric: a1 b1 a2 b2 a3 b3 a2 b2 a2 b1 a1
+            steps = [(0, odd), (1, even), (2, odd), (3, even), (4, odd),  (5, even),
+                     (4, odd), (3, even), (2, odd), (1, even), (0, odd)]  # yapf: disable
+            return steps * N_steps
+        # else
         raise ValueError("Unknown order {0!r} for Suzuki Trotter decomposition".format(order))
 
     def calc_U(self, order, delta_t, type_evo='real', E_offset=None):
@@ -432,7 +462,7 @@ class TEBD:
             self._U.append(U_bond)
         # done
 
-    def update(self, N_steps, delta_t, expectations):
+    def update(self, N_steps, delta_t):
         """Evolve by ``N_steps * U_param['dt']``.
 
         Parameters
@@ -449,68 +479,81 @@ class TEBD:
         trunc_err = TruncationError()
         order = self._U_param['order']
         ti = time.time()
-
-        times = [self.evolved_time]
+        times = [self.time]
+        psis = [self.psi.copy()]
         phis = [0.]
-        expectation_values = {op.__class__.__name__:[op.H_MPO.expectation_value(self.psi)] for op in expectations}
-        expectation_values[self.model.__class__.__name__] = [self.model.H_MPO.expectation_value(self.psi)]
 
-        for step in range(1, N_steps+1):
-            # U = exp[-i * dt * \sum_i h_i] =~
-            # exp[-i * dt/2 * sum_{odd i}] exp[-i * dt * sum_{even i}] exp[-i * dt/2 * sum_{odd i}]
-            trunc_err += self.update_step(0, 1)
-            trunc_err += self.update_step(1, 0)
-            trunc_err += self.update_step(0, 1)
-
-            self.evolved_time += delta_t
-            times.append(self.evolved_time)
-            expectations = self.reinit_model(expectations, expectation_values)
-            for op in expectations:
-                expectation_values[op.__class__.__name__].append(op.H_MPO.expectation_value(self.psi))
-            expectation_values[self.model.__class__.__name__].append(self.model.H_MPO.expectation_value(self.psi))
-            phis.append(self.model.options["phi"])
-            t = time.time() - ti  # time simulation has been running
-
-            complete = step / N_steps  # proportion complete
-            seconds = (t / step) * (1 - complete) * N_steps # time remaining
-            days = int(seconds // (3600 * 24))
-            seconds = seconds % (3600 * 24)
-            hrs = int(seconds // 3600)
-            seconds = seconds % 3600
-            mins = int(seconds // 60)
-            seconds = int(seconds % 60)
-            status = "Simulation status: {:.2f}% -- ".format(complete * 100)
-            status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
-            print(status, end="\r")
-
-            self.calc_U(order, delta_t, type_evo='real', E_offset=None)
-
+        if self.tracking_info is not None:
+            tracking_times = self.tracking_info["times"]
+            tracking_currents = self.tracking_info["currents"]
+        i = 0  # for keeping track of when a timestep completes
+        # returns [(0, odd boolean), (1, even_boolean), (0, odd_boolean)] * N
+        # boolean is actually just an integer 0 - false, 1 - true
+        for U_idx_dt, odd in self.suzuki_trotter_decomposition(order, N_steps):
+            i += 1
+            trunc_err += self.update_step(U_idx_dt, odd)
+            # """HERE WE WILL CALCULATE EXPECTATION VALUES"""
+            # the if statement indicates that one time step of the order 2
+            # method ONLY has completed
+            if i % 3 == 0:
+                self.time += delta_t
+                t = time.time() - ti  # time simulation has been running
+                complete = i / (N_steps * 3)  # proportion complete (2nd order)
+                seconds = ((3 * t) / i) * (1 - complete) * N_steps  # time remaining
+                days = int(seconds // (3600 * 24))
+                seconds = seconds % (3600 * 24)
+                hrs = int(seconds // 3600)
+                seconds = seconds % 3600
+                mins = int(seconds // 60)
+                seconds = int(seconds % 60)
+                status = "Simulation status: {:.2f}% -- ".format(complete * 100)
+                status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
+                print(status, end="\r")
+                times.append(self.time)
+                # energies.append(np.sum(self.model.bond_energies(self.psi)))
+                # currents.append(self.currentop.H_MPO.expectation_value(self.psi))
+                psis.append(self.psi.copy())
+                # now we must update the model which describes the hamiltonian
+                # and the time evolution operator for the next step
+                if self.tracking_info is not None:
+                    phi = self.update_operators(tracking_currents[int(i / 3)])
+                else:
+                    phi = self.update_operators(None)
+                phis.append(phi)
+                self.calc_U(order, delta_t, type_evo='real', E_offset=None)
         print()
+        self.evolved_time = self.evolved_time + N_steps * self._U_param['tau']
         self.trunc_err = self.trunc_err + trunc_err  # not += : make a copy!
         # (this is done to avoid problems of users storing self.trunc_err after each `update`)
-        return trunc_err, times, phis, expectation_values
+        # return trunc_err, np.array(times), np.array(energies), np.array(currents), np.array(phis)
+        return trunc_err, times, phis, psis
 
-    def reinit_model(self, expectations, evals):
-        """Re-initialize a new `self.model` at current `self.evolved_time`.
-        Returns
-        -------
-        model :
-            New instance of the model initialized at ``model_params['time'] = self.evolved_time``.
+    def update_operators(self, tcurrent):
         """
-        model_time = self.model.options.get('time', None)
-        if model_time is not None and model_time == self.evolved_time:
-            # no need to re-init
-            return self.model
-        classes = [op.__class__ for op in expectations]
-        del expectations
-        cls = self.model.__class__
-        model_params = self.model.options  # if you get an error, set this in your custom model
-        model_params['time'] = self.evolved_time
+        Update the Hamiltonian and the Current operator so they correspond to the correct time
+        """
         del self.model
-        self.model = cls(model_params, evals)
-        phi = self.model.options["phi"]
-        expectations = [cls(model_params, phi) for cls in classes]
-        return expectations
+        if callable(self.phi_func):
+            if self.phi_func.__name__ == "phi_tl":
+                phi = self.phi_func(self.p, self.time)
+            elif self.phi_func.__name__ == "phi_tracking":
+                phi = self.phi_func(self.p, self.nnop, self.psi, tcurrent)
+            else:
+                phi = self.phi_func(self.p, self.nnop, self.psi, self.c, self.scale)
+        # phi is a dictionary with phis and times
+        else:
+            phi_vals = self.phi_func["phis"]
+            phi_times = self.phi_func["times"]
+            # interpolation to find the value of phi
+            if self.time >= phi_times[-1]:
+                phi = phi_vals[-1]
+            else:
+                indx = np.where(phi_times > self.time)[0][0]
+                phi = phi_vals[indx-1] + (phi_vals[indx] - phi_vals[indx-1]) / \
+                      (phi_times[indx] - phi_times[indx-1]) * (self.time - phi_times[indx-1])
+        model = FHHamiltonian(self.p, phi)
+        self.model = model
+        return phi
 
 
     def update_step(self, U_idx_dt, odd):

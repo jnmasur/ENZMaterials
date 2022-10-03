@@ -3,7 +3,7 @@
 from tenpy.tools.params import Config
 from tenpy.algorithms.dmrg import TwoSiteDMRGEngine as DMRG
 from tenpy.networks.mps import MPS
-from tebd import Engine as TEBD
+from evolve import TEBD
 from tenpy.algorithms.truncation import TruncationError
 from tenpy.tools import hdf5_io
 from tools import *
@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 import time
 import h5py
 import sys
+import datetime
 
 """
 Command line arguments should be used as follows:
@@ -51,7 +52,7 @@ for i in range(1, len(sys.argv), 2):
 """IMPORTANT PARAMETERS"""
 ##########################
 # maximum bond dimension, used for both DMRG and TEBD, multiple of 200
-maxdim = 1000 if maxdim is None else maxdim
+maxdim = 2000 if maxdim is None else maxdim
 N = 10 if N is None else N
 iU = 0.5 * it if iU is None else iU
 # the number of steps if not apdative
@@ -81,6 +82,9 @@ phi_func = phi_tl
 # cps = "-nsteps{}-nsites{}-U{}-maxdim{}".format(nsteps, N, tuot, maxdim)
 # comp_current = np.load("./Data/Tenpy/Basic/currents" + cps + ".npy")
 
+p = Parameters(N, iU, it, ia, cycles, iomega0, iF0, pbc)
+
+c = (2 * p.a * p.t0 * (N-1))
 
 out = """Evolving with
 U/t0 = {:.1f}
@@ -91,8 +95,6 @@ scaling factor = {}
 pump field strength = {} MV/cm
 """.format(iU/it, maxdim, N, nsteps, c, iF0)
 print(out)
-
-p = Parameters(N, iU, it, ia, cycles, iomega0, iF0, pbc)
 
 # get the start time
 start_time = time.time()
@@ -113,19 +115,39 @@ while chi < maxdim:
 dmrg_dict = {"chi_list":chi_list, "max_E_err":maxerr, "max_sweeps":(maxdim / 100) + 4, "mixer":True, "combine":False}
 dmrg_params = Config(dmrg_dict, "DMRG-maxerr{}".format(maxerr))
 dmrg = DMRG(psi0_i, model, dmrg_params)
-# E, psi0 = dmrg.run()
-#
-# psi = psi0
+E, psi0 = dmrg.run()
+
+psi = psi0
 
 ti = 0
 tf = 2 * np.pi * cycles / p.field
 times, delta = np.linspace(ti, tf, num=nsteps, endpoint=True, retstep=True)
 # we pass in nsteps - 1 because we would like to evauluate the system at
 # nsteps time points, including the ground state calculations
-# tebd_dict = {"dt":delta, "order":2, "start_time":ti, "start_trunc_err":TruncationError(eps=maxerr), "trunc_params":{"svd_min":maxerr, "chi_max":maxdim}, "N_steps":nsteps-1, "F0":iF0}
-# tebd_params = Config(tebd_dict, "TEBD-trunc_err{}-nsteps{}".format(maxerr, nsteps))
-# tebd = TEBD(psi, model, p, phi_func, None, None, c, tebd_params)
-# times, energies, currents, phis = tebd.run()
+tebd_dict = {"dt":delta, "order":2, "start_time":ti, "start_trunc_err":TruncationError(eps=maxerr), "trunc_params":{"svd_min":maxerr, "chi_max":maxdim}, "N_steps":nsteps-1, "F0":iF0}
+tebd_params = Config(tebd_dict, "TEBD-trunc_err{}-nsteps{}".format(maxerr, nsteps))
+tebd = TEBD(psi, model, p, phi_func, None, c, tebd_params)
+times, phis, psis = tebd.run()
+
+ti = time.time()
+print("Calculating expectations")
+currents = []
+energies = []
+for i, (phi, psi) in enumerate(zip(phis, psis)):
+    currents.append(FHCurrent(p, phi).H_MPO.expectation_value(psi))
+    energies.append(FHHamiltonian(p, phi).H_MPO.expectation_value(psi))
+    seconds = (time.time() - ti) / nsteps * (nsteps - i - 1)
+    days = int(seconds // (3600 * 24))
+    seconds = seconds % (3600 * 24)
+    hrs = int(seconds // 3600)
+    seconds = seconds % 3600
+    mins = int(seconds // 60)
+    seconds = int(seconds % 60)
+    status = "Status: {:.2f}% -- ".format((i + 1) / nsteps * 100)
+    status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
+    print(status, end="\r")
+
+print("\nExpectations calculated, total time:", time.time() - ti)
 
 tot_time = time.time() - start_time
 
@@ -144,25 +166,16 @@ theta = np.angle(expec)
 
 scale = 2 * p.a * p.t0 * r * np.sin(theta)
 
-savedir = "./Data/Tenpy/ENZ/INITIALPHITEST-"
+savedir = "./Data/Tenpy/ENZ/"
 ecps = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, p.nsites, p.u, c, iF0, maxdim)
-# np.save(savedir + "energies" + ecps + ".npy", energies)
-# np.save(savedir + "currents" + ecps + ".npy", currents)
-# np.save(savedir + "phis" + ecps + ".npy", phis)
-currents = np.load(savedir + "currents" + ecps + ".npy")
-phis = np.load(savedir + "phis" + ecps + ".npy")
-
-plt.plot(phis, label="test $\\Phi$")
-plt.plot(currents, ls="dashed", label="test current")
-compphi = np.load("./Data/Tenpy/ENZ/phis" + ecps + ".npy")
-# plt.plot(compphi, ls="dashed", label="comparison $\\Phi$")
-plt.legend()
-plt.show()
+np.save(savedir + "energies" + ecps + ".npy", energies)
+np.save(savedir + "currents" + ecps + ".npy", currents)
+np.save(savedir + "phis" + ecps + ".npy", phis)
 
 # write metadata to file (evolution time and error)
 # np.save(savedir + "metadata" + ecps + ".npy", tot_time)
 
-# plt.plot(currents)
-# plt.plot(phis, label="$\\Phi(t)$", ls="dashed")
-# plt.legend()
-# plt.show()
+plt.plot(currents)
+plt.plot(c * np.array(phis) + currents[0], label="$\\kappa \\Phi(t) + J(0)$", ls="dashed")
+plt.legend()
+plt.show()

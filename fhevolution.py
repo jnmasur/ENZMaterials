@@ -103,15 +103,9 @@ print(out)
 
 p = Parameters(N, iU, it, ia, cycles, iomega0, iF0, pbc)
 
-fhps = dict(p=p, phi_func=phi_func, time=0.)
-if tracking:
-    fhps["tracking_times"] = tracking_times
-    fhps["tracking_currents"] = tracking_currents
-elif enz:
-    fhps["kappa"] = kappa
 # get the start time
 start_time = time.time()
-model = FHHamiltonian(fhps)
+model = FHHamiltonian(p, 0)
 sites = model.lat.mps_sites()
 state = ["up", "down"] * (N // 2)
 psi0_i = MPS.from_product_state(sites, state)
@@ -138,11 +132,10 @@ times, delta = np.linspace(ti, tf, num=nsteps, endpoint=True, retstep=True)
 # nsteps time points, including the ground state calculations
 tebd_dict = {"dt":delta, "order":2, "start_time":ti, "start_trunc_err":TruncationError(eps=maxerr), "trunc_params":{"svd_min":maxerr, "chi_max":maxdim}, "N_steps":nsteps-1}
 tebd_params = Config(tebd_dict, "TEBD-trunc_err{}-nsteps{}".format(maxerr, nsteps))
-tebd = TEBD(psi, model, tebd_params)
+tebd = TEBD(psi, model, p, phi_func, tracking_info, c, tebd_params)
+times, phis, psis = tebd.run()
 
-# set up expectations
-expectations = [FHCurrent(fhps), FHNearestNeighbor(fhps)]
-times, phis, evals = tebd.run(enz, tracking, expectations)
+"""CALCULATE EXPECTATIONS HERE"""
 
 tot_time = time.time() - start_time
 

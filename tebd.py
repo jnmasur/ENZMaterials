@@ -1,6 +1,6 @@
-######################################################################################
-"""DONT USE THIS ANYMORE, ALL TIME EVOLUTION FILES WILL NOW BE LOCATED IN evolve.py"""
-######################################################################################
+###############################################################
+"""DONT USE THIS ANYMORE!!! TEBD IS NOW DEFINED IN EVOLVE.PY"""
+###############################################################
 
 r"""Time evolving block decimation (TEBD).
 
@@ -194,7 +194,9 @@ class Engine:
                 with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
                     hdf5_io.save_to_hdf5(f, self.psi)
 
-            self.scale = np.sin(np.angle(self.nnop.H_MPO.expectation_value(self.psi)))
+            expec = self.nnop.H_MPO.expectation_value(self.psi)
+            r, theta = np.abs(expec), np.angle(expec)
+            self.scale = r * np.sin(theta)
             self.time = 0.0
             self.phi_func = phi_enz
             self.update_operators(None)
@@ -203,16 +205,16 @@ class Engine:
             if adaptive:
                 trunc_err, times, energies, currents, phis = self.update_adaptive(delta_t, final_t)
             else:
-                trunc_err, times, energies, currents, phis = self.update(N_steps, delta_t)
+                trunc_err, times, phis, psis = self.update(N_steps, delta_t)
 
         else:
             # with adaptive time step, we need both the times and current to track
             if adaptive:
                 trunc_err, times, energies, currents, phis = self.update_adaptive(delta_t, final_t)
             else:
-                trunc_err, times, energies, currents, phis = self.update(N_steps, delta_t)
+                trunc_err, times, phis, psis = self.update(N_steps, delta_t)
 
-        return times, energies, currents, phis
+        return times, phis, psis
 
     @staticmethod
     def suzuki_trotter_time_steps(order):
@@ -379,17 +381,14 @@ class Engine:
         order = self._U_param['order']
         ti = time.time()
         times = [self.time]
-        # if self.c is None:
-        energies = [np.sum(self.model.bond_energies(self.psi))]
-        currents = [self.currentop.H_MPO.expectation_value(self.psi)]
+        # energies = [np.sum(self.model.bond_energies(self.psi))]
+        # currents = [self.currentop.H_MPO.expectation_value(self.psi)]
+        psis = [self.psi.copy()]
         phis = [0.]
-        for i, op in enumerate(self.expectations):
-            self.expectation_values[i].append(op.H_MPO.expectation_value(self.psi))
-        # enz simulation
-        # else:
-        #     energies = []
-        #     currents = []
-        #     phis = []
+
+        nncommop = NearestNeighborCommutatorModel(self.p).H_MPO
+        print(nncommop.expectation_value(self.psi))
+
         if self.tracking_info is not None:
             tracking_times = self.tracking_info["times"]
             tracking_currents = self.tracking_info["currents"]
@@ -417,10 +416,9 @@ class Engine:
                 status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
                 print(status, end="\r")
                 times.append(self.time)
-                energies.append(np.sum(self.model.bond_energies(self.psi)))
-                currents.append(self.currentop.H_MPO.expectation_value(self.psi))
-                for i, op in enumerate(self.expectations):
-                    self.expectation_values[i].append(op.H_MPO.expectation_value(self.psi))
+                # energies.append(np.sum(self.model.bond_energies(self.psi)))
+                # currents.append(self.currentop.H_MPO.expectation_value(self.psi))
+                psis.append(self.psi.copy())
                 # now we must update the model which describes the hamiltonian
                 # and the time evolution operator for the next step
                 if self.tracking_info is not None:
@@ -433,7 +431,8 @@ class Engine:
         self.evolved_time = self.evolved_time + N_steps * self._U_param['tau']
         self.trunc_err = self.trunc_err + trunc_err  # not += : make a copy!
         # (this is done to avoid problems of users storing self.trunc_err after each `update`)
-        return trunc_err, np.array(times), np.array(energies), np.array(currents), np.array(phis)
+        # return trunc_err, np.array(times), np.array(energies), np.array(currents), np.array(phis)
+        return trunc_err, times, phis, psis
 
     def update_adaptive(self, dti, tf):
         """
@@ -542,7 +541,7 @@ class Engine:
         Update the Hamiltonian and the Current operator so they correspond to the correct time
         """
         del self.model
-        del self.currentop
+        # del self.currentop
         if callable(self.phi_func):
             if self.phi_func.__name__ == "phi_tl":
                 phi = self.phi_func(self.p, self.time)
@@ -562,9 +561,9 @@ class Engine:
                 phi = phi_vals[indx-1] + (phi_vals[indx] - phi_vals[indx-1]) / \
                       (phi_times[indx] - phi_times[indx-1]) * (self.time - phi_times[indx-1])
         model = FHHamiltonian(self.p, phi)
-        currentop = FHCurrent(self.p, phi)
+        # currentop = FHCurrent(self.p, phi)
         self.model = model
-        self.currentop = currentop
+        # self.currentop = currentop
         return phi
 
 
