@@ -1,0 +1,21 @@
+#! /opt/anaconda3/envs/tenpy/bin/python
+
+import os
+import threading
+import multiprocessing
+threads = multiprocessing.cpu_count()
+print(threads)
+# os.environ["MKL_NUM_THREADS"] = "1"
+# os.environ["OMP_NUM_THREADS"] = "1"
+from test import run
+
+if __name__ == "__main__":
+    data = [(6, 1., k) for k in [.1, .125, .25, .5, 1., 2., 4., 5.]]
+    with multiprocessing.Pool(8) as pool:
+        pool.starmap(run, data)
+    # for nthreads in range(1, 9):
+    #     os.environ["MKL_NUM_THREADS"] = str(nthreads)
+    #     t1 = threading.Thread(target=run, args=(6, 1., 1.))
+    #     t1.start()
+    #     t1.join()
+    #     del t1

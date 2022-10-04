@@ -315,6 +315,60 @@ class TEBD:
         trunc_err, times, phis, psis = self.update(N_steps, delta_t)
         return times, phis, psis
 
+    def run_parallel(self):
+        """(Real-)time evolution with TEBD (time evolving block decimation).
+
+        .. cfg:configoptions :: TEBD
+
+            dt : float
+                Time step.
+            N_steps : int
+                Number of time steps `dt` to evolve.
+                The Trotter decompositions of order > 1 are slightly more efficient
+                if more than one step is performed at once.
+            order : int
+                Order of the algorithm. The total error scales as ``O(t*dt^order)``.
+
+        """
+        # initialize parameters
+        delta_t = self.options.get('dt', 0.1)
+        N_steps = self.options.get('N_steps', 10)
+        TrotterOrder = self.options.get('order', 2)
+
+        self.calc_U(TrotterOrder, delta_t, type_evo='real', E_offset=None)
+
+        final_t = N_steps * delta_t
+
+        # enz simulation
+        if self.c is not None:
+            fps = "-nsites{}-U{}-F{}-maxdim{}".format(self.p.nsites, self.p.u, self.options["F0"], self.options["trunc_params"]["chi_max"])
+            # load excited state (one that has been evolved by tl pulse)
+            try:
+                with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'r') as f:
+                    psi = hdf5_io.load_from_hdf5(f)
+                self.psi = psi
+            # initital psi not saved yet, evolve and save it
+            except Exception as e:
+                #######################
+                """LOCK THIS SECTION"""
+                #######################
+                # evolve the system under pulse specified in evolution, and save the resulting state
+                self.update(N_steps, delta_t)
+                with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
+                    hdf5_io.save_to_hdf5(f, self.psi)
+
+            expec = self.nnop.expectation_value(self.psi)
+            r, theta = np.abs(expec), np.angle(expec)
+            self.scale = r * np.sin(theta)
+            self.time = 0.0
+            self.phi_func = phi_enz
+            self.update_operators(None)
+            # evolve the system such that the trajectory follows the input pulse
+            self.calc_U(TrotterOrder, delta_t, type_evo='real', E_offset=None)
+
+        trunc_err, times, phis, currents, energies = self.update_parallel(N_steps, delta_t)
+        return times, phis, currents, energies
+
     @staticmethod
     def suzuki_trotter_time_steps(order):
         """Return time steps of U for the Suzuki Trotter decomposition of desired order.
@@ -510,8 +564,6 @@ class TEBD:
                 status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
                 print(status, end="\r")
                 times.append(self.time)
-                # energies.append(np.sum(self.model.bond_energies(self.psi)))
-                # currents.append(self.currentop.H_MPO.expectation_value(self.psi))
                 psis.append(self.psi.copy())
                 # now we must update the model which describes the hamiltonian
                 # and the time evolution operator for the next step
@@ -525,8 +577,75 @@ class TEBD:
         self.evolved_time = self.evolved_time + N_steps * self._U_param['tau']
         self.trunc_err = self.trunc_err + trunc_err  # not += : make a copy!
         # (this is done to avoid problems of users storing self.trunc_err after each `update`)
-        # return trunc_err, np.array(times), np.array(energies), np.array(currents), np.array(phis)
         return trunc_err, times, phis, psis
+
+    def update_parallel(self, N_steps, delta_t):
+        """Evolve by ``N_steps * U_param['dt']``.
+
+        Parameters
+        ----------
+        N_steps : int
+            The number of steps for which the whole lattice should be updated.
+
+        Returns
+        -------
+        trunc_err : :class:`~tenpy.algorithms.truncation.TruncationError`
+            The error of the represented state which is introduced due to the truncation during
+            this sequence of update steps.
+        """
+        trunc_err = TruncationError()
+        order = self._U_param['order']
+        # ti = time.time()
+        times = [self.time]
+        energies = [self.model.H_MPO.expectation_value(self.psi)]
+        currents = [self.currentop.H_MPO.expectation_value(self.psi)]
+        phis = [0.]
+
+        if self.tracking_info is not None:
+            tracking_times = self.tracking_info["times"]
+            tracking_currents = self.tracking_info["currents"]
+        i = 0  # for keeping track of when a timestep completes
+        # returns [(0, odd boolean), (1, even_boolean), (0, odd_boolean)] * N
+        # boolean is actually just an integer 0 - false, 1 - true
+        for U_idx_dt, odd in self.suzuki_trotter_decomposition(order, N_steps):
+            i += 1
+            trunc_err += self.update_step(U_idx_dt, odd)
+            # """HERE WE WILL CALCULATE EXPECTATION VALUES"""
+            # the if statement indicates that one time step of the order 2
+            # method ONLY has completed
+            if i % 3 == 0:
+                self.time += delta_t
+                # t = time.time() - ti  # time simulation has been running
+                # complete = i / (N_steps * 3)  # proportion complete (2nd order)
+                # seconds = ((3 * t) / i) * (1 - complete) * N_steps  # time remaining
+                # days = int(seconds // (3600 * 24))
+                # seconds = seconds % (3600 * 24)
+                # hrs = int(seconds // 3600)
+                # seconds = seconds % 3600
+                # mins = int(seconds // 60)
+                # seconds = int(seconds % 60)
+                # status = "Simulation status: {:.2f}% -- ".format(complete * 100)
+                # status += "Estimated time remaining: {} days, {}".format(days, datetime.time(hrs, mins, seconds))
+                # print(status, end="\r")
+                times.append(self.time)
+                energies.append(np.sum(self.model.bond_energies(self.psi)))
+                currents.append(self.currentop.H_MPO.expectation_value(self.psi))
+                # now we must update the model which describes the hamiltonian
+                # and the time evolution operator for the next step
+                if self.tracking_info is not None:
+                    phi = self.update_operators(tracking_currents[int(i / 3)])
+                else:
+                    phi = self.update_operators(None)
+                phis.append(phi)
+                del self.currentop
+                self.currentop = FHCurrent(self.p, phi)
+                # calculate expectations here
+                self.calc_U(order, delta_t, type_evo='real', E_offset=None)
+        # print()
+        self.evolved_time = self.evolved_time + N_steps * self._U_param['tau']
+        self.trunc_err = self.trunc_err + trunc_err  # not += : make a copy!
+        # (this is done to avoid problems of users storing self.trunc_err after each `update`)
+        return trunc_err, np.array(times), np.array(phis), np.array(currents), np.array(energies)
 
     def update_operators(self, tcurrent):
         """
