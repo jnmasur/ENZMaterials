@@ -315,7 +315,7 @@ class TEBD:
         trunc_err, times, phis, psis = self.update(N_steps, delta_t)
         return times, phis, psis
 
-    def run_parallel(self):
+    def run_parallel(self, lock=None):
         """(Real-)time evolution with TEBD (time evolving block decimation).
 
         .. cfg:configoptions :: TEBD
@@ -342,20 +342,37 @@ class TEBD:
         # enz simulation
         if self.c is not None:
             fps = "-nsites{}-U{}-F{}-maxdim{}".format(self.p.nsites, self.p.u, self.options["F0"], self.options["trunc_params"]["chi_max"])
-            # load excited state (one that has been evolved by tl pulse)
-            try:
-                with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'r') as f:
-                    psi = hdf5_io.load_from_hdf5(f)
-                self.psi = psi
-            # initital psi not saved yet, evolve and save it
-            except Exception as e:
-                #######################
-                """LOCK THIS SECTION"""
-                #######################
-                # evolve the system under pulse specified in evolution, and save the resulting state
-                self.update(N_steps, delta_t)
-                with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
-                    hdf5_io.save_to_hdf5(f, self.psi)
+
+            # if a lock is passed in
+            if lock is not None:
+                lock.acquire()
+                # load excited state (one that has been evolved by tl pulse)
+                try:
+                    with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'r') as f:
+                        psi = hdf5_io.load_from_hdf5(f)
+                    self.psi = psi
+                # initital psi not saved yet, evolve and save it
+                except Exception as e:
+                    # evolve the system under pulse specified in evolution, and save the resulting state
+                    self.update_parallel(N_steps, delta_t)
+                    with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
+                        hdf5_io.save_to_hdf5(f, self.psi)
+
+                finally:
+                    lock.release()
+            # there are no locks passed in, try to load the initial state, else find it
+            else:
+                try:
+                    with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'r') as f:
+                        psi = hdf5_io.load_from_hdf5(f)
+                    self.psi = psi
+
+                except Exception as e:
+                    # evolve the system under pulse specified in evolution, and save the resulting state
+                    self.update(N_steps, delta_t)
+                    with h5py.File("./Data/Tenpy/ENZ/psi0" + fps + ".h5", 'w') as f:
+                        hdf5_io.save_to_hdf5(f, self.psi)
+
 
             expec = self.nnop.expectation_value(self.psi)
             r, theta = np.abs(expec), np.angle(expec)

@@ -4,26 +4,26 @@ from tools import relative_error, phi_tl, Parameters, relative_error_interp, spe
 from scipy.stats import linregress
 
 """CODE FOR PLOTTING ENZ"""
-nsteps = 4000
-nsites = 10
-uot = 0.5
-maxdim = 2000
-c = 2.600064071248677 # scaling factor
-F0 = 10.
-
-dir = "./Data/Tenpy/ENZ/"
-params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
-
-currents = np.load(dir + "currents" + params + ".npy")
-phis = np.load(dir + "phis" + params + ".npy")
-print(relative_error(phis * c + currents[0], currents))
-plt.plot(currents, color="blue")
-plt.plot(c * phis + currents[0], ls="dashed", color="orange", label="$\\kappa \\Phi(t) + J(0)$")
-plt.xlabel("Time Step")
-plt.ylabel("Current")
-plt.legend()
-plt.savefig("./Data/Images/ENZ/" + params[1:] + ".png")
-plt.show()
+# nsteps = 4000
+# nsites = 10
+# uot = 0.5
+# maxdim = 2000
+# c = 2.600064071248677 # scaling factor
+# F0 = 10.
+#
+# dir = "./Data/Tenpy/ENZ/"
+# params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#
+# currents = np.load(dir + "currents" + params + ".npy")
+# phis = np.load(dir + "phis" + params + ".npy")
+# print(relative_error(phis * c + currents[0], currents))
+# plt.plot(currents, color="blue")
+# plt.plot(c * phis + currents[0], ls="dashed", color="orange", label="$\\kappa \\Phi(t) + J(0)$")
+# plt.xlabel("Time Step")
+# plt.ylabel("Current")
+# plt.legend()
+# plt.savefig("./Data/Images/ENZ/" + params[1:] + ".png")
+# plt.show()
 
 """PLOT ENZ EHRENFEST"""
 # nsteps = 4000
@@ -74,29 +74,29 @@ plt.show()
 # plt.show()
 
 """PLOT CHANGE IN ENERGY AGAINST 1/KAPPA"""
-# nsteps = 4000
-# nsites = 10
-# uot = 2.
-# F0 = 10.
-# maxdim = 1000
-#
-# fig, ax = plt.subplots()
-#
-# dir = "./Data/Tenpy/ENZ/"
-# for uot in [.5, 1., 2.]:
-#     energydiffs = []
-#     for c in [.25, .5, 1., 2., 4.]:
-#         params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
-#         energies = np.load(dir + "energies" + params + ".npy")
-#         energydiffs.append(energies[-1] - energies[0])
-#     ax.plot([1/c for c in [.25, .5, 1., 2., 4.]], energydiffs, label="$\\frac{U}{t_0} = %.2f$" % (uot))
-#
-# ax.set_xlabel("$\\frac{1}{\\kappa}$")
-# ax.set_ylabel(r"$E\left( \frac{2 \pi M}{\omega_0} \right) - E(0)$")
-# ax.legend()
-#
-# fig.subplots_adjust(left=.17, bottom=.12, right=.98, top=.98, wspace=None, hspace=None)
-# plt.show()
+nsteps = 4000
+nsites = 18
+F0 = 10.
+maxdim = 2000
+
+fig, ax = plt.subplots()
+
+dir = "./Data/Tenpy/ENZ/"
+for uot in [.5, 1., 2.]:
+    energydiffs = []
+    for c in [.25, .33, .5, .75, 1., 1.5, 2., 3., 4.]:
+        params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+        energies = np.load(dir + "energies" + params + ".npy")
+        currents = np.load(dir + "currents" + params + ".npy")
+        energydiffs.append((energies[-1] - energies[0]) / (currents[-1]**2 - currents[0]**2))
+    ax.plot([1/c for c in [.25, .33, .5, .75, 1., 1.5, 2., 3., 4.]], energydiffs, label="$\\frac{U}{t_0} = %.2f$" % (uot))
+
+ax.set_xlabel("$\\frac{1}{\\kappa}$")
+ax.set_ylabel(r"$E\left( \frac{2 \pi M}{\omega_0} \right) - E(0)$")
+ax.legend()
+
+fig.subplots_adjust(left=.17, bottom=.12, right=.98, top=.98, wspace=None, hspace=None)
+plt.show()
 
 """PLOT CHANGE IN ENERGY VS SYSTEM SIZE"""
 # nsteps = 4000
@@ -110,6 +110,29 @@ plt.show()
 #     params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, kappa, F0, maxdim)
 #     energies = np.load(dir + "energies" + params + ".npy")
 #     plt.plot(nsites, energies[-1] - energies[0], marker="o")
+# plt.show()
+
+# nsteps = 4000
+# F0 = 10.
+# maxdim = 2000
+# c = 4.
+#
+# fig, ax = plt.subplots()
+#
+# dir = "./Data/Tenpy/ENZ/"
+# for uot in [.5, 1., 2.]:
+#     energydiffs = []
+#     for nsites in [12, 14, 16, 18, 20]:
+#         params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
+#         energies = np.load(dir + "energies" + params + ".npy")
+#         energydiffs.append(energies[-1] - energies[0])
+#     ax.plot([12, 14, 16, 18, 20], energydiffs, label="$\\frac{U}{t_0} = %.2f$" % (uot))
+#
+# ax.set_xlabel("N")
+# ax.set_ylabel(r"$E\left( \frac{2 \pi M}{\omega_0} \right) - E(0)$")
+# ax.legend()
+#
+# fig.subplots_adjust(left=.17, bottom=.12, right=.98, top=.98, wspace=None, hspace=None)
 # plt.show()
 
 """PLOT CHANGE IN CURRENT^2 VS CHANGE IN ENERGY"""
