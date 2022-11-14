@@ -3,13 +3,17 @@ from matplotlib import pyplot as plt
 from tools import relative_error, phi_tl, Parameters, relative_error_interp, spectrum
 from scipy.stats import linregress
 
+nsteps = 2000
+nsites = 10
+uot = 1.
+maxdim = 2000
+c = 4. # scaling factor
+F0 = 10.
+
 """CODE FOR PLOTTING ENZ"""
-# nsteps = 4000
-# nsites = 10
-# uot = 0.5
-# maxdim = 2000
-# c = 2.600064071248677 # scaling factor
-# F0 = 10.
+# p = Parameters(nsites, uot * .52, .52, 4, 10, 32.9, 10., False)
+# ypsi = 2 * p.a * p.t0 * (nsites - 1) / c
+# print("Y(ψ) ≤ %.4f" % ypsi)
 #
 # dir = "./Data/Tenpy/ENZ/"
 # params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
@@ -18,7 +22,7 @@ from scipy.stats import linregress
 # phis = np.load(dir + "phis" + params + ".npy")
 # print(relative_error(phis * c + currents[0], currents))
 # plt.plot(currents, color="blue")
-# plt.plot(c * phis + currents[0], ls="dashed", color="orange", label="$\\kappa \\Phi(t) + J(0)$")
+# plt.plot(c * phis + currents[0], ls="dashed", color="orange", label="$ \\frac{\\Phi(t)}{\\mathfrak{L}} + J(0)$")
 # plt.xlabel("Time Step")
 # plt.ylabel("Current")
 # plt.legend()
@@ -26,13 +30,6 @@ from scipy.stats import linregress
 # plt.show()
 
 """PLOT ENZ EHRENFEST"""
-# nsteps = 4000
-# nsites = 10
-# uot = 0.0
-# maxdim = 1000
-# c = 1. # scaling factor
-# F0 = 10.
-#
 # dir = "./Data/Tenpy/Ehrenfest/"
 # params = "-nsteps{}-nsites{}-U{}-maxdim{}".format(nsteps, nsites, uot, maxdim)
 #
@@ -46,13 +43,6 @@ from scipy.stats import linregress
 # plt.show()
 
 """PLOT ENZ PHIS AGAINST EACH OTHER"""
-# nsteps = 4000
-# nsites = 10
-# uot = 1.
-# maxdim = 1000
-# c = 4. # scaling factor
-# F0 = 10.
-#
 # dir = "./Data/Tenpy/ENZ/"
 # fig, axs = plt.subplots(1, 3, sharex=True, figsize=(12, 4))
 #
@@ -73,90 +63,43 @@ from scipy.stats import linregress
 # plt.savefig("./Data/Images/PhiVsKappa-F{}.png".format(F0))
 # plt.show()
 
-"""PLOT CHANGE IN ENERGY AGAINST 1/KAPPA"""
-nsteps = 4000
-nsites = 18
-F0 = 10.
-maxdim = 2000
-
-fig, ax = plt.subplots()
-
-dir = "./Data/Tenpy/ENZ/"
-for uot in [.5, 1., 2.]:
-    energydiffs = []
-    for c in [.25, .33, .5, .75, 1., 1.5, 2., 3., 4.]:
-        params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
-        energies = np.load(dir + "energies" + params + ".npy")
-        currents = np.load(dir + "currents" + params + ".npy")
-        energydiffs.append((energies[-1] - energies[0]) / (currents[-1]**2 - currents[0]**2))
-    ax.plot([1/c for c in [.25, .33, .5, .75, 1., 1.5, 2., 3., 4.]], energydiffs, label="$\\frac{U}{t_0} = %.2f$" % (uot))
-
-ax.set_xlabel("$\\frac{1}{\\kappa}$")
-ax.set_ylabel(r"$E\left( \frac{2 \pi M}{\omega_0} \right) - E(0)$")
-ax.legend()
-
-fig.subplots_adjust(left=.17, bottom=.12, right=.98, top=.98, wspace=None, hspace=None)
-plt.show()
-
-"""PLOT CHANGE IN ENERGY VS SYSTEM SIZE"""
-# nsteps = 4000
-# uot = 0.5
-# F0 = 10.
-# maxdim = 2000
-# kappa = 1.
+"""PLOT CHANGE IN CURRENT^2 VS CHANGE IN ENERGY (MPS)"""
+# p = Parameters(nsites, uot * .52, .52, 4, 10, 32.9, 10., False)
 #
 # dir = "./Data/Tenpy/ENZ/"
-# for nsites in range(10, 21, 2):
-#     params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, kappa, F0, maxdim)
-#     energies = np.load(dir + "energies" + params + ".npy")
-#     plt.plot(nsites, energies[-1] - energies[0], marker="o")
-# plt.show()
-
-# nsteps = 4000
-# F0 = 10.
-# maxdim = 2000
-# c = 4.
-#
-# fig, ax = plt.subplots()
-#
-# dir = "./Data/Tenpy/ENZ/"
-# for uot in [.5, 1., 2.]:
-#     energydiffs = []
-#     for nsites in [12, 14, 16, 18, 20]:
-#         params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
-#         energies = np.load(dir + "energies" + params + ".npy")
-#         energydiffs.append(energies[-1] - energies[0])
-#     ax.plot([12, 14, 16, 18, 20], energydiffs, label="$\\frac{U}{t_0} = %.2f$" % (uot))
-#
-# ax.set_xlabel("N")
-# ax.set_ylabel(r"$E\left( \frac{2 \pi M}{\omega_0} \right) - E(0)$")
-# ax.legend()
-#
-# fig.subplots_adjust(left=.17, bottom=.12, right=.98, top=.98, wspace=None, hspace=None)
-# plt.show()
-
-"""PLOT CHANGE IN CURRENT^2 VS CHANGE IN ENERGY"""
-# nsteps = 4000
-# uot = 0.5
-# F0 = 10.
-# maxdim = 2000
-# kappa = 1.
-# nsites = 20
-#
-# dir = "./Data/Tenpy/ENZ/"
-# params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, kappa, F0, maxdim)
+# params = "-nsteps{}-nsites{}-U{}-c{}-F{}-maxdim{}".format(nsteps, nsites, uot, c, F0, maxdim)
 # times = np.load("./Data/Tenpy/Basic/times-nsteps{}.npy".format(nsteps))
 # energies = np.load(dir + "energies" + params + ".npy")
 # currents = np.load(dir + "currents" + params + ".npy")
-# deltaE = np.array([energies[i] - energies[0] for i in range(1,4000)])
-# deltaJ2 = np.array([currents[i]**2 - currents[0]**2 for i in range(1, 4000)])
+# deltaE = energies[1:] - energies[0]
+# deltaJ2 = currents[1:]**2 - currents[0]**2
 #
 # xs = np.linspace(min(deltaJ2), max(deltaJ2), num=1000)
-# comparison = -0.5 * (nsites / kappa) * xs + energies[0]
-# plt.plot(times[1:], deltaE / deltaJ2)
-# # plt.plot(deltaJ2, deltaE, marker=".", ls="")
-# # plt.plot(xs, comparison, ls="dashed")
+# comparison = -0.5 * ((nsites - 1) / c) * np.sqrt(p.a) * xs + max(deltaE)
+# plt.scatter(deltaJ2, deltaE, c=np.arange(len(deltaE)))
+# plt.plot(xs, comparison, ls="dashed")
+# plt.xlabel("$J^2 (t) - J^2 (0)$")
+# plt.ylabel("$E(t) - E(0)$")
 # plt.show()
+
+"""PLOT CHANGE IN CURRENT^2 VS CHANGE IN ENERGY (Exact)"""
+p = Parameters(nsites, uot * .52, .52, 4, 10, 32.9, 10., True)
+
+dir = "./Data/Exact/ENZ/"
+params = "-nsteps{}-nsites{}-U{}-c{}-F{}".format(nsteps, nsites, uot, c, F0)
+times = np.load("./Data/Exact/ENZ/times-nsteps{}.npy".format(nsteps))
+energies = np.load(dir + "energies" + params + ".npy")
+currents = np.load(dir + "currents" + params + ".npy")
+deltaE = energies[1:] - energies[0]
+deltaJ2 = currents[1:]**2 - currents[0]**2
+
+xs = np.linspace(min(deltaJ2), max(deltaJ2), num=1000)
+comparison = -0.5 * (nsites / c) * p.a**(1/4) * xs + max(deltaE)
+plt.scatter(deltaJ2, deltaE, c=np.arange(len(deltaE)))
+plt.plot(xs, comparison, ls="dashed")
+plt.xlabel("$J^2 (t) - J^2 (0)$")
+plt.ylabel("$E(t) - E(0)$")
+plt.show()
 
 
 """PLOT ENZ ENERGIES AGAINST EACH OTHER"""

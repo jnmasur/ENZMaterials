@@ -1,0 +1,14 @@
+#! /bin/python
+
+from multiprocessing import Pool
+from exact_enz import run
+
+data = []
+for U in [0.25, 0.5, 1., 2., 4.]:
+    for a in range(1, 11):
+        for c in [.125, .25, .5, 1., 2., 4., 8.]:
+            data.append((U, a, c))
+
+if __name__ == "__main__":
+    with Pool(100) as pool:
+        pool.starmap(run, data)

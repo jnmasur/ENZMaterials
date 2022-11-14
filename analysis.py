@@ -3,6 +3,12 @@ from matplotlib import pyplot as plt
 import matplotlib as mpl
 from tools import relative_error, relative_error_interp
 
+#########################################
+"""DEPENDENCE OF CHANGE IN ENERGY ON a"""
+#########################################
+nsteps = 2000
+
+
 ###########################################
 """COMPARING ENERGY TO CURRENT AND KAPPA"""
 ###########################################
