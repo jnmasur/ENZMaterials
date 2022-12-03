@@ -1,0 +1,30 @@
+#! /bin/python
+
+import os
+import threading
+import multiprocessing
+threads = multiprocessing.cpu_count()
+print(threads)
+os.environ["OMP_NUM_THREADS"] = "4"
+from mps_enz import run
+
+nsites, nsteps, uot, a, ind, lock=None
+if __name__ == "__main__":
+    nsitess = [30]
+    uots = [0.5, 1.0]
+    nstepss = [4000]
+    ias = [4.]
+    inds = [.25, .5, 1., 2., 4.]
+    maxdimss = [2000]
+    with multiprocessing.Manager() as manager:
+        data = []
+        for nsites in nstitess:
+            for uot in uots:
+                for ia in ias:
+                    lock = manager.Lock()
+                    for nsteps in nstepss:
+                            for ind in inds:
+                                data.append((nsites, nsteps, uot, ia, ind, lock))
+
+        with multiprocessing.Pool(8) as pool:
+            pool.starmap(run, data)
