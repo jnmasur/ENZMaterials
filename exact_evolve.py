@@ -6,10 +6,10 @@ def phi_enz_exact(p, nnop, psi, ind, scale):
     r = np.abs(expec)
     theta = np.angle(expec)
     g = scale / r
-    y = 2 * p.a * p.t0 * r * ind
+    y = 2 * p.a**2 * p.t0 * r * ind
     # when this function is 0, induced current = phi
-    f = lambda phi: np.sin(phi - theta) + (phi / y) + g
-    res = root_scalar(f, bracket=[-abs(y) - g*y, abs(y) - g*y])
+    f = lambda phi: np.sin(phi - theta) - (phi / y) + g
+    res = root_scalar(f, bracket=[-abs(y) + g*y, abs(y) + g*y])
     if not res.converged:
         raise Exception("Could not find zero")
     return res.root

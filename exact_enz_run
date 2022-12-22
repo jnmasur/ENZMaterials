@@ -4,18 +4,17 @@ import os
 import threading
 import multiprocessing
 threads = multiprocessing.cpu_count()
-print(threads)
-os.environ["OMP_NUM_THREADS"] = "4"
-from mps_enz import run
+# print(threads)
+# os.environ["OMP_NUM_THREADS"] = "4"
+from exact_enz import run
 
 nsites, nsteps, uot, a, ind, lock=None
 if __name__ == "__main__":
-    nsitess = [30]
-    uots = [0.5, 1.0]
-    nstepss = [4000]
+    nsitess = [12]
+    uots = [0.5, 1.0, 2.0]
+    nstepss = [2000]
     ias = [4.]
-    inds = [.25, .5, 1., 2., 4.]
-    maxdimss = [2000]
+    inds = [-2., -1., -.5, .5, 1., 2.]
     with multiprocessing.Manager() as manager:
         data = []
         for nsites in nstitess:
@@ -26,5 +25,5 @@ if __name__ == "__main__":
                             for ind in inds:
                                 data.append((nsites, nsteps, uot, ia, ind, lock))
 
-        with multiprocessing.Pool(8) as pool:
+        with multiprocessing.Pool(18) as pool:
             pool.starmap(run, data)

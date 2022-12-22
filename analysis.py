@@ -4,37 +4,42 @@ import matplotlib as mpl
 from tools import Parameters, phi_tl
 from scipy.stats import linregress
 
-nsteps = 2000
-nsites = 10
-uot = 4.
+nsteps = 4000
+nsites = 26
+uot = .25
 maxdim = 2000
 ind = 4. # inductance
 F0 = 10.
-a = 4
+a = .25
+exact = False
 
 ##########################
 """DELTA E VS DELTA J^2"""
 ##########################
 
-# dir = "./Data/Exact/ENZ/"
-# params = f'-nsteps{nsteps}-nsites{nsites}-U{uot}-ind{ind}-F{F0}-a{a}'
-# energies = np.load(dir + "energies" + params + ".npy")
-# currents = np.load(dir + "currents" + params + ".npy")
-#
-# deltaE = energies[0] - energies[1:]
-# deltaJ2 = currents[1:]**2 - currents[0]**2
-# p = Parameters(nsites, uot * .52, .52, a, 10, 32.9, F0, True)
-# res = linregress(deltaJ2, deltaE)
-# print(f"R-val = {res.rvalue}")
-# print("slope * 2 * a / \mathfrak{L} =", res.slope * p.a * 2 / ind)
-#
-# plt.scatter(deltaJ2, deltaE)
-# plt.plot(deltaJ2, .5 * ind * deltaJ2 / p.a, color="orange")
-# plt.show()
+if exact:
+    dir = "./Data/Exact/ENZ/"
+    params = f'-nsteps{nsteps}-nsites{nsites}-U{uot}-ind{ind}-F{F0}-a{a}'
+else:
+    dir = "./Data/Tenpy/ENZ/"
+    params = f'-nsteps{nsteps}-nsites{nsites}-U{uot}-c{1/ind}-F{10.0}-maxdim{maxdim}'
+energies = np.load(dir + "energies" + params + ".npy")
+currents = np.load(dir + "currents" + params + ".npy")
 
-###############################################
-"""DELTA E VS DELTA J^2 for nonENZ evolution"""
-###############################################
+deltaE = energies[0] - energies[1:]
+deltaJ2 = currents[1:]**2 - currents[0]**2
+p = Parameters(nsites, uot * .52, .52, a, 10, 32.9, F0, True)
+res = linregress(deltaJ2, deltaE)
+print(f"R-val = {res.rvalue}")
+print("slope * 2 * a / \mathfrak{L} =", res.slope * p.a * 2 / ind)
+
+plt.scatter(deltaJ2, deltaE)
+plt.plot(deltaJ2, .5 * ind * deltaJ2 / p.a, color="orange")
+plt.show()
+
+################################################
+"""DELTA E VS DELTA J^2 for non ENZ evolution"""
+################################################
 
 # dir = "./Data/Exact/Basic/"
 # params = f'-U{uot}-nsites{nsites}-nsteps{nsteps}'
