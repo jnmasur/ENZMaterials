@@ -38,4 +38,9 @@ def phi_tl(p, time):
         p - an instance of Parameters
         time - current time
     """
-    return (p.a * p.strength / p.field) * (np.sin(p.field * time / (2*p.cycles))**2) * np.sin(p.field * time) 
+    return (p.a * p.strength / p.field) * (np.sin(p.field * time / (2*p.cycles))**2) * np.sin(p.field * time)
+
+def efield_tl(p, time):
+    r1 = -p.strength * np.sin(p.field * time / (2 * p.cycles))**2
+    r2 = -p.strength / p.cycles  * np.sin(p.field * time) * np.cos(p.field * time / (2 * p.cycles)) * np.sin(p.field * time / (2 * p.cycles))
+    return r1 + r2

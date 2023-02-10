@@ -5,37 +5,38 @@ from tools import Parameters, phi_tl
 from scipy.stats import linregress
 
 nsteps = 4000
-nsites = 26
-uot = .25
+nsites = 10
+uot = 1.
 maxdim = 2000
-ind = 4. # inductance
+ind = 1. # inductance
 F0 = 10.
-a = .25
+a = 4.
+kp = 100
 exact = False
 
 ##########################
 """DELTA E VS DELTA J^2"""
 ##########################
 
-if exact:
-    dir = "./Data/Exact/ENZ/"
-    params = f'-nsteps{nsteps}-nsites{nsites}-U{uot}-ind{ind}-F{F0}-a{a}'
-else:
-    dir = "./Data/Tenpy/ENZ/"
-    params = f'-nsteps{nsteps}-nsites{nsites}-U{uot}-c{1/ind}-F{10.0}-maxdim{maxdim}'
-energies = np.load(dir + "energies" + params + ".npy")
-currents = np.load(dir + "currents" + params + ".npy")
-
-deltaE = energies[0] - energies[1:]
-deltaJ2 = currents[1:]**2 - currents[0]**2
-p = Parameters(nsites, uot * .52, .52, a, 10, 32.9, F0, True)
-res = linregress(deltaJ2, deltaE)
-print(f"R-val = {res.rvalue}")
-print("slope * 2 * a / \mathfrak{L} =", res.slope * p.a * 2 / ind)
-
-plt.scatter(deltaJ2, deltaE)
-plt.plot(deltaJ2, .5 * ind * deltaJ2 / p.a, color="orange")
-plt.show()
+# if exact:
+#     dir = "./Data/Exact/ENZ/"
+#     params = f'-nsteps{nsteps}-nsites{nsites}-U{uot}-ind{ind}-F{F0}-a{a}'
+# else:
+#     dir = "./Data/Tenpy/ENZ/"
+#     params = f'-nsteps{nsteps}-nsites{nsites}-U{uot}-c{1/ind}-F{10.0}-maxdim{maxdim}'
+# energies = np.load(dir + "energies" + params + ".npy")
+# currents = np.load(dir + "currents" + params + ".npy")
+#
+# deltaE = energies[0] - energies[1:]
+# deltaJ2 = currents[1:]**2 - currents[0]**2
+# p = Parameters(nsites, uot * .52, .52, a, 10, 32.9, F0, True)
+# res = linregress(deltaJ2, deltaE)
+# print(f"R-val = {res.rvalue}")
+# print("slope * 2 * a / \mathfrak{L} =", res.slope * p.a * 2 / ind)
+#
+# plt.scatter(deltaJ2, deltaE)
+# plt.plot(deltaJ2, .5 * ind * deltaJ2 / p.a, color="orange")
+# plt.show()
 
 ################################################
 """DELTA E VS DELTA J^2 for non ENZ evolution"""
@@ -57,6 +58,30 @@ plt.show()
 # plt.plot(deltaE)
 # plt.plot(expec_deltaE, ls="dashed")
 # plt.show()
+
+###################################
+"""DEPENDENCE OF FEEDBACK ON IND"""
+###################################
+dir = "./Data/Exact/FeedbackENZ/"
+
+params = f'-nsites{nsites}-U{uot}-ind{ind}-kp{kp}-F{F0}-a{a}'
+times = np.load(dir + "times" + params + ".npy")
+plt.plot(times, [1] * len(times), label="expected")
+for ind in [-2., -1., -.5, .5, 1., 2.]:
+
+    params = f'-nsites{nsites}-U{uot}-ind{ind}-kp{kp}-F{F0}-a{a}'
+    p = Parameters(nsites, uot * .52, .52, a, 10, 32.9, F0, True)
+    currents = np.load(dir + "currents" + params + ".npy")
+    phis = np.load(dir + "phis" + params + ".npy")
+    params = f'-nsites{nsites}-U{uot}-ind{ind}-kp{kp}-F{F0}-a{a}'
+    times = np.load(dir + "times" + params + ".npy")
+    plt.plot(times, (currents / phis) / (-p.a * ind), label="$\\mathfrak{L}=%.2f$" % ind)
+
+plt.xlabel("Time Step")
+plt.ylabel("$J / \\Phi$")
+plt.legend()
+# plt.savefig("./Data/Images/ENZ/ENZplot" + params + ".pdf")
+plt.show()
 
 #########################################
 """DEPENDENCE OF a ON CHANGE IN ENERGY"""

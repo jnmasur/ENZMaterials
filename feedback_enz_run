@@ -1,0 +1,22 @@
+#! /opt/anaconda3/bin/python
+
+import os
+import threading
+import multiprocessing
+from feedback_enz import run
+
+if __name__ == "__main__":
+    nsitess = [10]
+    uots = [0.5, 1.0, 2.0]
+    ias = [4.]
+    inds = [-2., -1., -.5, .5, 1., 2.]
+    kps = [100]
+    data = []
+    for nsites in nsitess:
+        for uot in uots:
+            for ia in ias:
+                for ind in inds:
+                        for kp in kps:
+                            data.append((nsites, uot, ia, ind, kp))
+    with multiprocessing.Pool(4) as pool:
+        pool.starmap(run, data)

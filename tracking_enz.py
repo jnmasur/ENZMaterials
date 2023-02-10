@@ -3,7 +3,7 @@ from quspin.basis import spinful_fermion_basis_1d  # Hilbert space basis
 import quspin.tools.evolution as evolution
 import numpy as np  # general math functions
 from time import time  # tool for calculating computation time
-from exact_evolve import *
+from evolve import *
 from matplotlib import pyplot as plt
 import sys
 
@@ -14,11 +14,11 @@ def run(nsites, nsteps, uot, a, ind, lock=None):
     if nsteps is None:
         nsteps = 2000
     if uot is None:
-        uot = 1.
+        uot = 2.
     if a is None:
         a = 4
     if ind is None:
-        ind = 1.
+        ind = 0.5
     """Hubbard model Parameters"""
     N_up = nsites // 2 + nsites % 2  # number of fermions with spin up
     N_down = nsites // 2  # number of fermions with spin down
@@ -29,8 +29,8 @@ def run(nsites, nsteps, uot, a, ind, lock=None):
 
     """Laser pulse parameters"""
     field = 32.9  # field angular frequency THz
-    F0 = 10.  # Field amplitude MV/cm
-    cycles = 10  # time in cycles of field frequency for tl pulse
+    F0 = 10. # Field amplitude MV/cm
+    cycles = 10 # time in cycles of field frequency for tl pulse
 
     """instantiate parameters with proper unit scaling"""
     lat = Parameters(nsites, U, t0, a, cycles, field, F0, pbc)
@@ -72,6 +72,7 @@ def run(nsites, nsteps, uot, a, ind, lock=None):
     if lock is not None:
         lock.acquire()
     try:
+        raise()
         psi_0 = np.load("./Data/Exact/ENZ/psi0" + psi_0_parameters + ".npy")
         print("Loaded initial psi")
     except:
@@ -110,11 +111,20 @@ def run(nsites, nsteps, uot, a, ind, lock=None):
     expectations = {'H': H_expec(psi_t, times, onsite, hop_left, hop_right, lat, phis),
                     'J': J_expec(psi_t, times, hop_left, hop_right, lat, phis)}
 
+    currents = expectations["J"]
+
+    plt.plot(times, np.array(currents), color="blue", label="$J(t)$")
+    plt.plot(times, np.array(phis) / (-lat.a * ind) + currents[0], ls="dashed", color="orange", label="$ -\\frac{\\Phi(t)}{a\\mathfrak{L}} + J(0)$")
+    plt.xlabel("Time")
+    plt.ylabel("Current")
+    plt.legend()
+    plt.savefig("./Data/Images/ENZ/ENZplot" + parameters + ".pdf")
+    plt.show()
+
     np.save('./Data/Exact/ENZ/energies'+parameters+'.npy', expectations['H'])
     np.save('./Data/Exact/ENZ/currents'+parameters+'.npy', expectations['J'])
     np.save('./Data/Exact/ENZ/phis'+parameters+'.npy', phis)
     np.save("./Data/Exact/ENZ/times" + f'-nsteps{n_steps}' + ".npy", times)
-
 
 if __name__ == "__main__":
     UOT = N = NSTEPS = IND = A = None
@@ -127,6 +137,7 @@ if __name__ == "__main__":
             NSTEPS = int(sys.argv[i + 1])
         elif sys.argv[i] == "--L":
             IND = float(sys.argv[i + 1])
+            print("Inductance:", IND)
         elif sys.argv[i] == "--a":
             A = int(sys.argv[i + 1])
         else:
